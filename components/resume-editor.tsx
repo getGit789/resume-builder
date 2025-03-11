@@ -225,7 +225,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
             />
           </div>
           <div className="space-y-2">
-            <label htmlFor="summary" className="text-sm font-medium">
+            <label htmlFor="summary" className="text-base font-semibold">
               Professional Summary
             </label>
             <SimpleRichTextEditor
@@ -233,12 +233,12 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               onChange={(value) => handlePersonalInfoChange("summary", value)}
               placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
               showCharacterCount
-              characterLimit={600}
+              characterLimit={400}
             />
           </div>
           <div className="space-y-2 mt-4">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Professional Links</label>
+              <label className="text-base font-semibold">Professional Links</label>
               <Button
                 variant="outline"
                 size="sm"
@@ -414,14 +414,14 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                       />
                     </div>
                     <div className="space-y-2">
-                      <label htmlFor={`${item.id}-description`} className="text-sm font-medium">
+                      <label htmlFor={`${item.id}-description`} className="text-base font-semibold">
                         Description
                       </label>
                       <SimpleRichTextEditor
                         value={item.description}
                         onChange={(value) => onItemChange(section.id, item.id, "description", value)}
                         placeholder="Describe your responsibilities, achievements, and key contributions..."
-                        showCharacterCount
+                        showCharacterCount={false}
                         characterLimit={400}
                       />
                     </div>

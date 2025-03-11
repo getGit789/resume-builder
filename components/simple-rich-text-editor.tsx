@@ -98,7 +98,7 @@ export function SimpleRichTextEditor({
   onChange,
   placeholder,
   className,
-  characterLimit = 600,
+  characterLimit = 400,
   showCharacterCount = false,
   showFormatting = true,
 }: SimpleRichTextEditorProps) {
@@ -305,6 +305,12 @@ export function SimpleRichTextEditor({
   return (
     <div className={cn("relative group", className)}>
       <div className="space-y-2">
+        {placeholder && (
+          <p className="text-sm text-muted-foreground mb-2">
+            {placeholder}
+          </p>
+        )}
+        
         {showFormatting && (
           <div className="flex items-center space-x-1 mb-1">
             <Button
@@ -418,24 +424,18 @@ export function SimpleRichTextEditor({
             onInput={handleInput}
             onKeyDown={handleKeyDown}
           />
-          {showPlaceholder && placeholder && (
-            <div 
-              className="absolute top-3 left-3 pointer-events-none text-muted-foreground"
-              onClick={() => {
-                if (editorRef.current) {
-                  editorRef.current.focus();
-                }
-              }}
-            >
-              {placeholder}
-            </div>
-          )}
         </div>
+        
         {showCharacterCount && (
-          <div className="flex justify-end">
-            <span className={cn("text-sm", characterCount > characterLimit ? "text-destructive" : "text-muted-foreground")}>
-              {characterCount} / {characterLimit}
-            </span>
+          <div className="flex flex-col space-y-1">
+            <p className="text-xs text-muted-foreground">
+              Recruiter tip: write 400-600 characters to increase interview chances
+            </p>
+            <div className="flex justify-end">
+              <span className={cn("text-sm", characterCount > characterLimit ? "text-primary" : "text-muted-foreground")}>
+                {characterCount} / {characterLimit}+
+              </span>
+            </div>
           </div>
         )}
       </div>
