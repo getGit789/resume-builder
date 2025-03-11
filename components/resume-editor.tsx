@@ -6,10 +6,53 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { GripVertical, Plus, Trash2 } from "lucide-react"
+import { GripVertical, Pen, Plus, Trash2 } from "lucide-react"
+import { SimpleRichTextEditor } from "./simple-rich-text-editor"
+import { useState } from "react"
 
-export default function ResumeEditor({ data, onChange }) {
-  const handlePersonalInfoChange = (field, value) => {
+interface Link {
+  id: string
+  title: string
+  url: string
+}
+
+interface PersonalInfo {
+  firstName: string
+  lastName: string
+  title: string
+  email: string
+  phone: string
+  location: string
+  summary: string
+  links: Link[]
+}
+
+interface ResumeItem {
+  id: string
+  title: string
+  subtitle: string
+  date: string
+  description: string
+}
+
+interface ResumeSection {
+  id: string
+  title: string
+  items: ResumeItem[]
+}
+
+interface ResumeData {
+  personalInfo: PersonalInfo
+  sections: ResumeSection[]
+}
+
+interface ResumeEditorProps {
+  data: ResumeData
+  onChange: (data: ResumeData) => void
+}
+
+export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
+  const handlePersonalInfoChange = (field: keyof PersonalInfo, value: string | Link[]) => {
     onChange({
       ...data,
       personalInfo: {
@@ -19,7 +62,7 @@ export default function ResumeEditor({ data, onChange }) {
     })
   }
 
-  const handleSectionChange = (sectionId, field, value) => {
+  const handleSectionChange = (sectionId: string, field: keyof ResumeSection, value: string) => {
     const updatedSections = data.sections.map((section) => {
       if (section.id === sectionId) {
         return {
@@ -36,7 +79,7 @@ export default function ResumeEditor({ data, onChange }) {
     })
   }
 
-  const handleItemChange = (sectionId, itemId, field, value) => {
+  const handleItemChange = (sectionId: string, itemId: string, field: keyof ResumeItem, value: string) => {
     const updatedSections = data.sections.map((section) => {
       if (section.id === sectionId) {
         const updatedItems = section.items.map((item) => {
@@ -63,7 +106,7 @@ export default function ResumeEditor({ data, onChange }) {
     })
   }
 
-  const addItem = (sectionId) => {
+  const addItem = (sectionId: string) => {
     const updatedSections = data.sections.map((section) => {
       if (section.id === sectionId) {
         const newItem = {
@@ -88,7 +131,7 @@ export default function ResumeEditor({ data, onChange }) {
     })
   }
 
-  const removeItem = (sectionId, itemId) => {
+  const removeItem = (sectionId: string, itemId: string) => {
     const updatedSections = data.sections.map((section) => {
       if (section.id === sectionId) {
         return {
@@ -106,12 +149,12 @@ export default function ResumeEditor({ data, onChange }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6 max-w-3xl mx-auto bg-background">
       <Card>
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
+        <CardHeader className="bg-muted/40">
+          <CardTitle className="text-xl font-semibold">Personal Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="firstName" className="text-sm font-medium">
@@ -121,6 +164,7 @@ export default function ResumeEditor({ data, onChange }) {
                 id="firstName"
                 value={data.personalInfo.firstName}
                 onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
+                suppressHydrationWarning
               />
             </div>
             <div className="space-y-2">
@@ -131,6 +175,7 @@ export default function ResumeEditor({ data, onChange }) {
                 id="lastName"
                 value={data.personalInfo.lastName}
                 onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
+                suppressHydrationWarning
               />
             </div>
           </div>
@@ -142,6 +187,7 @@ export default function ResumeEditor({ data, onChange }) {
               id="title"
               value={data.personalInfo.title}
               onChange={(e) => handlePersonalInfoChange("title", e.target.value)}
+              suppressHydrationWarning
             />
           </div>
           <div className="space-y-2">
@@ -153,6 +199,7 @@ export default function ResumeEditor({ data, onChange }) {
               type="email"
               value={data.personalInfo.email}
               onChange={(e) => handlePersonalInfoChange("email", e.target.value)}
+              suppressHydrationWarning
             />
           </div>
           <div className="space-y-2">
@@ -163,6 +210,7 @@ export default function ResumeEditor({ data, onChange }) {
               id="phone"
               value={data.personalInfo.phone}
               onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
+              suppressHydrationWarning
             />
           </div>
           <div className="space-y-2">
@@ -173,27 +221,29 @@ export default function ResumeEditor({ data, onChange }) {
               id="location"
               value={data.personalInfo.location}
               onChange={(e) => handlePersonalInfoChange("location", e.target.value)}
+              suppressHydrationWarning
             />
           </div>
           <div className="space-y-2">
             <label htmlFor="summary" className="text-sm font-medium">
               Professional Summary
             </label>
-            <Textarea
-              id="summary"
-              rows={4}
+            <SimpleRichTextEditor
               value={data.personalInfo.summary}
-              onChange={(e) => handlePersonalInfoChange("summary", e.target.value)}
+              onChange={(value) => handlePersonalInfoChange("summary", value)}
+              placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
+              showCharacterCount
+              characterLimit={600}
             />
           </div>
           <div className="space-y-2 mt-4">
             <div className="flex items-center justify-between">
-              <label className="text-sm font-medium">Links</label>
+              <label className="text-sm font-medium">Professional Links</label>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const newLinks = [
+                  const newLinks: Link[] = [
                     ...(data.personalInfo.links || []),
                     {
                       id: `link-${Date.now()}`,
@@ -268,7 +318,15 @@ export default function ResumeEditor({ data, onChange }) {
   )
 }
 
-function SortableSection({ section, onSectionChange, onItemChange, onAddItem, onRemoveItem }) {
+interface SortableSectionProps {
+  section: ResumeSection
+  onSectionChange: (sectionId: string, field: keyof ResumeSection, value: string) => void
+  onItemChange: (sectionId: string, itemId: string, field: keyof ResumeItem, value: string) => void
+  onAddItem: (sectionId: string) => void
+  onRemoveItem: (sectionId: string, itemId: string) => void
+}
+
+function SortableSection({ section, onSectionChange, onItemChange, onAddItem, onRemoveItem }: SortableSectionProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: section.id })
 
   const style = {
@@ -283,13 +341,34 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
           <div {...attributes} {...listeners} className="cursor-grab p-2 mr-2 rounded hover:bg-muted">
             <GripVertical className="h-5 w-5 text-muted-foreground" />
           </div>
-          <div className="flex-1">
+          <div className="flex-1 flex items-center gap-2">
             <Input
               value={section.title}
               onChange={(e) => onSectionChange(section.id, "title", e.target.value)}
               className="font-bold text-lg border-none p-0 h-auto focus-visible:ring-0"
               placeholder="Section Title"
             />
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => onAddItem(section.id)}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={() => {
+                  const input = document.querySelector(`[value="${section.title}"]`) as HTMLInputElement
+                  if (input) input.focus()
+                }}
+              >
+                <Pen className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -309,6 +388,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                         id={`${item.id}-title`}
                         value={item.title}
                         onChange={(e) => onItemChange(section.id, item.id, "title", e.target.value)}
+                        suppressHydrationWarning
                       />
                     </div>
                     <div className="space-y-2">
@@ -319,6 +399,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                         id={`${item.id}-subtitle`}
                         value={item.subtitle}
                         onChange={(e) => onItemChange(section.id, item.id, "subtitle", e.target.value)}
+                        suppressHydrationWarning
                       />
                     </div>
                     <div className="space-y-2">
@@ -329,17 +410,19 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                         id={`${item.id}-date`}
                         value={item.date}
                         onChange={(e) => onItemChange(section.id, item.id, "date", e.target.value)}
+                        suppressHydrationWarning
                       />
                     </div>
                     <div className="space-y-2">
                       <label htmlFor={`${item.id}-description`} className="text-sm font-medium">
                         Description
                       </label>
-                      <Textarea
-                        id={`${item.id}-description`}
-                        rows={3}
+                      <SimpleRichTextEditor
                         value={item.description}
-                        onChange={(e) => onItemChange(section.id, item.id, "description", e.target.value)}
+                        onChange={(value) => onItemChange(section.id, item.id, "description", value)}
+                        placeholder="Describe your responsibilities, achievements, and key contributions..."
+                        showCharacterCount
+                        characterLimit={400}
                       />
                     </div>
                     <Button

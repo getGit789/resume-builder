@@ -1,4 +1,38 @@
-export function ProfessionalTemplate({ data }) {
+// Define the interface for the resume data structure
+interface ResumeData {
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    title: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    links?: {
+      id: string;
+      url: string;
+      title: string;
+    }[];
+    summary?: string;
+  };
+  sections?: {
+    id: string;
+    type: string;
+    title: string;
+    items: {
+      id: string;
+      title: string;
+      subtitle: string;
+      date?: string;
+      description?: string;
+    }[];
+  }[];
+}
+
+interface ProfessionalTemplateProps {
+  data: ResumeData;
+}
+
+export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
   return (
     <div className="font-serif">
       <div className="text-center mb-6">
@@ -31,11 +65,14 @@ export function ProfessionalTemplate({ data }) {
       {data.personalInfo.summary && (
         <div className="mb-6">
           <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-1 mb-2">Professional Summary</h2>
-          <p className="text-sm">{data.personalInfo.summary}</p>
+          <div 
+            className="text-sm" 
+            dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }}
+          />
         </div>
       )}
 
-      {data.sections.map((section) => (
+      {data.sections && data.sections.map((section) => (
         <div key={section.id} className="mb-6">
           <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-1 mb-2">{section.title}</h2>
           <div className="space-y-4">
@@ -48,7 +85,7 @@ export function ProfessionalTemplate({ data }) {
                   </div>
                   {item.date && <p className="text-gray-600 text-sm">{item.date}</p>}
                 </div>
-                {item.description && <p className="text-sm mt-1">{item.description}</p>}
+                {item.description && <div className="text-sm mt-1" dangerouslySetInnerHTML={{ __html: item.description }} />}
               </div>
             ))}
           </div>
@@ -57,4 +94,3 @@ export function ProfessionalTemplate({ data }) {
     </div>
   )
 }
-
