@@ -52,37 +52,56 @@
   min-height: 1em;
 }
 
+/* Improved list styling */
+.richTextEditor ul, .richTextEditor ol {
+  list-style-position: outside !important;
+  padding-left: 1.5rem !important;
+  margin-bottom: 0.5rem !important;
+  display: block !important;
+}
+
 .richTextEditor ul {
-  list-style-type: disc;
-  padding-left: 1.5rem;
-  margin-bottom: 0.5rem;
+  list-style-type: disc !important;
+}
+
+.richTextEditor ol {
+  list-style-type: decimal !important;
 }
 
 .richTextEditor li {
-  margin-bottom: 0.25rem;
+  margin-bottom: 0.25rem !important;
+  display: list-item !important;
+  list-style: inherit !important;
+}
+
+/* Ensure empty list items are visible */
+.richTextEditor li:empty::after {
+  content: '\00a0'; /* Non-breaking space */
+  display: inline-block;
 }
 
 .richTextEditor a {
-  color: hsl(var(--primary));
-  text-decoration: underline;
+  color: hsl(var(--primary)) !important;
+  text-decoration: underline !important;
+  cursor: pointer !important;
 }
 
 .richTextEditor strong, 
 .richTextEditor b {
-  font-weight: bold;
+  font-weight: bold !important;
 }
 
 .richTextEditor em,
 .richTextEditor i {
-  font-style: italic;
+  font-style: italic !important;
 }
 
 .richTextEditor u {
-  text-decoration: underline;
+  text-decoration: underline !important;
 }
 
 .richTextEditor s {
-  text-decoration: line-through;
+  text-decoration: line-through !important;
 }
 
 /* Fix selection issues with nested elements */

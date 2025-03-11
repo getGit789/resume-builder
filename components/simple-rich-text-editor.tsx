@@ -1,9 +1,10 @@
 "use client"
 
-import { Bold, Italic, Link2, List, Strikethrough } from "lucide-react"
+import { Bold, Italic, Link, List, Strikethrough } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "./ui/button"
 import { cn } from "@/lib/utils"
+import styles from "./rich-text-editor.module.css"
 
 interface SimpleRichTextEditorProps {
   value: string
@@ -51,6 +52,47 @@ const isEmptyContent = (content: string) => {
   return cleaned === '';
 };
 
+// Function to ensure proper list structure
+function ensureProperListStructure(html: string): string {
+  // Create a temporary div to manipulate the HTML
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  
+  // Find all ul elements
+  const ulElements = tempDiv.querySelectorAll('ul');
+  
+  ulElements.forEach(ul => {
+    // Check if the ul is empty
+    if (ul.innerHTML.trim() === '') {
+      // Create a list item with a non-breaking space
+      const li = document.createElement('li');
+      li.innerHTML = '&nbsp;';
+      ul.appendChild(li);
+    } else {
+      // Ensure all direct text nodes are wrapped in li elements
+      Array.from(ul.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim()) {
+          const li = document.createElement('li');
+          li.textContent = node.textContent;
+          ul.insertBefore(li, node);
+          ul.removeChild(node);
+        }
+      });
+      
+      // Ensure all direct elements that are not li are wrapped in li
+      Array.from(ul.children).forEach(child => {
+        if (child.tagName.toLowerCase() !== 'li') {
+          const li = document.createElement('li');
+          ul.insertBefore(li, child);
+          li.appendChild(child);
+        }
+      });
+    }
+  });
+  
+  return tempDiv.innerHTML;
+}
+
 export function SimpleRichTextEditor({
   value,
   onChange,
@@ -66,33 +108,18 @@ export function SimpleRichTextEditor({
   const [formatState, setFormatState] = useState({
     bold: false,
     italic: false,
-    list: false
+    strikethrough: false,
+    list: false,
+    link: false
   });
 
-  // Update format state based on current selection
-  const updateFormatState = () => {
-    if (document.queryCommandSupported('bold')) {
-      setFormatState({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        list: document.queryCommandState('insertUnorderedList')
-      });
-    }
-  };
-
-  // Handle selection changes
+  // Initialize content when value changes from outside
   useEffect(() => {
-    const handleSelectionChange = () => {
-      if (isEditing) {
-        updateFormatState();
-      }
-    };
-    
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
-    };
-  }, [isEditing]);
+    if (editorRef.current && !isEditing) {
+      editorRef.current.innerHTML = value || '';
+      setShowPlaceholder(isEmptyContent(value));
+    }
+  }, [value, isEditing]);
 
   // Handle paste events to clean formatting
   useEffect(() => {
@@ -114,58 +141,83 @@ export function SimpleRichTextEditor({
     };
   }, []);
 
-  // Initialize content when value changes from outside
+  // Update format state based on current selection
+  const updateFormatState = () => {
+    if (!editorRef.current || !document.queryCommandSupported('bold')) return;
+    
+    setFormatState({
+      bold: document.queryCommandState('bold'),
+      italic: document.queryCommandState('italic'),
+      strikethrough: document.queryCommandState('strikethrough'),
+      list: document.queryCommandState('insertUnorderedList'),
+      link: document.queryCommandState('createLink')
+    });
+  };
+
+  // Handle selection changes to update format state
   useEffect(() => {
-    if (editorRef.current && !isEditing) {
-      editorRef.current.innerHTML = value || '';
-      setShowPlaceholder(isEmptyContent(value));
-    }
-  }, [value, isEditing]);
+    const handleSelectionChange = () => {
+      if (document.activeElement === editorRef.current) {
+        updateFormatState();
+      }
+    };
+    
+    document.addEventListener('selectionchange', handleSelectionChange);
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, []);
 
   // Apply formatting
   const handleFormat = (command: string) => {
     if (!editorRef.current) return;
     
+    // Focus the editor
     editorRef.current.focus();
     
-    try {
-      if (command === 'createLink') {
-        const selection = window.getSelection();
-        const hasSelection = selection && selection.toString().length > 0;
-        
-        const url = window.prompt('Enter the URL:');
-        if (!url) return;
-        
-        if (!hasSelection) {
-          const linkText = window.prompt('Enter link text:', 'Link text') || 'Link text';
-          document.execCommand('insertHTML', false, 
-            `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`);
-        } else {
-          document.execCommand(command, false, url);
-          
-          // Ensure links have target and rel attributes
-          const links = editorRef.current.querySelectorAll('a');
-          links.forEach(link => {
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-          });
-        }
+    if (command === "createLink") {
+      const selection = window.getSelection();
+      const selectedText = selection?.toString().trim();
+      
+      const url = prompt("Enter URL:", "https://");
+      if (!url) return;
+      
+      if (!selectedText) {
+        // No selection, ask for link text
+        const linkText = prompt("Enter link text:", "Link") || "Link";
+        const linkHtml = `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+        document.execCommand('insertHTML', false, linkHtml);
       } else {
-        document.execCommand(command, false);
+        // Apply link to selection
+        document.execCommand("createLink", false, url);
+        
+        // Add target="_blank" to the newly created link
+        const links = editorRef.current.querySelectorAll('a');
+        links.forEach(link => {
+          link.setAttribute('target', '_blank');
+          link.setAttribute('rel', 'noopener noreferrer');
+        });
       }
+    } else if (command === "insertUnorderedList") {
+      document.execCommand("insertUnorderedList", false);
       
-      // Update format state after applying formatting
-      updateFormatState();
-      
-      // Update the value
-      if (editorRef.current) {
-        const content = editorRef.current.innerHTML;
-        const sanitized = sanitizeHtml(content);
-        onChange(sanitized);
+      // Fix empty lists
+      if (editorRef.current.innerHTML.includes('<ul><br></ul>')) {
+        editorRef.current.innerHTML = editorRef.current.innerHTML.replace('<ul><br></ul>', '<ul><li><br></li></ul>');
       }
-    } catch (error) {
-      console.error('Formatting error:', error);
+    } else {
+      // Apply standard formatting (bold, italic, etc.)
+      document.execCommand(command, false);
     }
+    
+    // Update content
+    const content = editorRef.current.innerHTML;
+    const sanitized = sanitizeHtml(content);
+    onChange(sanitized);
+    
+    // Update format state
+    updateFormatState();
   };
 
   // Handle content changes
@@ -180,7 +232,71 @@ export function SimpleRichTextEditor({
     if (isEmpty) {
       onChange('');
     } else {
-      onChange(content);
+      // Fix empty lists
+      let fixedContent = content;
+      if (fixedContent.includes('<ul><br></ul>')) {
+        fixedContent = fixedContent.replace('<ul><br></ul>', '<ul><li><br></li></ul>');
+        editorRef.current.innerHTML = fixedContent;
+      }
+      
+      onChange(sanitizeHtml(fixedContent));
+    }
+    
+    // Update format state
+    updateFormatState();
+  };
+
+  // Handle key events
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle keyboard shortcuts
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      switch (e.key.toLowerCase()) {
+        case 'b': // Bold
+          e.preventDefault();
+          handleFormat('bold');
+          return;
+        case 'i': // Italic
+          e.preventDefault();
+          handleFormat('italic');
+          return;
+        case 'u': // Underline
+          e.preventDefault();
+          handleFormat('underline');
+          return;
+        case 'k': // Link
+          e.preventDefault();
+          handleFormat('createLink');
+          return;
+      }
+    }
+    
+    // Handle Enter in empty list items to exit the list
+    if (e.key === 'Enter' && !e.shiftKey) {
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) return;
+      
+      // Check if we're in a list item
+      const range = selection.getRangeAt(0);
+      let node = range.startContainer;
+      let listItem = null;
+      
+      // Find the list item parent
+      while (node && node !== editorRef.current) {
+        if (node.nodeName === 'LI') {
+          listItem = node;
+          break;
+        }
+        node = node.parentNode as Node;
+      }
+      
+      // If we're in an empty list item, exit the list
+      if (listItem && (!listItem.textContent || listItem.textContent.trim() === '')) {
+        e.preventDefault();
+        document.execCommand('insertParagraph', false);
+        document.execCommand('outdent', false);
+        updateFormatState();
+        handleInput();
+      }
     }
   };
 
@@ -190,71 +306,72 @@ export function SimpleRichTextEditor({
     <div className={cn("relative group", className)}>
       <div className="space-y-2">
         {showFormatting && (
-          <div className="flex items-center gap-1 pb-2">
-            <div className="flex gap-1">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Bold"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("bold");
-                }}
-                className={formatState.bold ? "bg-muted" : ""}
-              >
-                <Bold className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Italic"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("italic");
-                }}
-                className={formatState.italic ? "bg-muted" : ""}
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Strikethrough"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("strikethrough");
-                }}
-              >
-                <Strikethrough className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Bullet List"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("insertUnorderedList");
-                }}
-                className={formatState.list ? "bg-muted" : ""}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Add Link"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("createLink");
-                }}
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
-            </div>
+          <div className="flex items-center space-x-1 mb-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 p-0 ${formatState.bold ? "bg-primary/20 text-primary" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent losing focus
+                handleFormat("bold");
+              }}
+              title="Bold"
+            >
+              <Bold className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 p-0 ${formatState.italic ? "bg-primary/20 text-primary" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent losing focus
+                handleFormat("italic");
+              }}
+              title="Italic"
+            >
+              <Italic className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 p-0 ${formatState.strikethrough ? "bg-primary/20 text-primary" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent losing focus
+                handleFormat("strikethrough");
+              }}
+              title="Strikethrough"
+            >
+              <Strikethrough className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 p-0 ${formatState.list ? "bg-primary/20 text-primary" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent losing focus
+                handleFormat("insertUnorderedList");
+              }}
+              title="Bullet List"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className={`h-8 w-8 p-0 ${formatState.link ? "bg-primary/20 text-primary" : ""}`}
+              onMouseDown={(e) => {
+                e.preventDefault(); // Prevent losing focus
+                handleFormat("createLink");
+              }}
+              title="Insert Link"
+            >
+              <Link className="h-4 w-4" />
+            </Button>
           </div>
         )}
         <div className="relative">
@@ -264,7 +381,7 @@ export function SimpleRichTextEditor({
             className={cn(
               "min-h-[100px] p-3 rounded-md border focus:outline-none focus:ring-2 focus:ring-ring",
               isEditing && "ring-2 ring-ring",
-              "rich-text-editor",
+              styles.richTextEditor,
               className
             )}
             style={{
@@ -281,6 +398,7 @@ export function SimpleRichTextEditor({
               if (showPlaceholder && editorRef.current) {
                 editorRef.current.innerHTML = '';
               }
+              updateFormatState();
             }}
             onBlur={() => {
               setIsEditing(false);
@@ -293,35 +411,12 @@ export function SimpleRichTextEditor({
                   setShowPlaceholder(true);
                   onChange('');
                 } else {
-                  const sanitized = sanitizeHtml(content);
-                  onChange(sanitized);
+                  onChange(sanitizeHtml(content));
                 }
               }
             }}
             onInput={handleInput}
-            onKeyDown={(e) => {
-              // Keyboard shortcuts for formatting
-              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-                switch (e.key.toLowerCase()) {
-                  case 'b': // Bold
-                    e.preventDefault();
-                    handleFormat('bold');
-                    break;
-                  case 'i': // Italic
-                    e.preventDefault();
-                    handleFormat('italic');
-                    break;
-                  case 'u': // Underline
-                    e.preventDefault();
-                    handleFormat('underline');
-                    break;
-                  case 'k': // Link
-                    e.preventDefault();
-                    handleFormat('createLink');
-                    break;
-                }
-              }
-            }}
+            onKeyDown={handleKeyDown}
           />
           {showPlaceholder && placeholder && (
             <div 

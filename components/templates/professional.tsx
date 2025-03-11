@@ -66,7 +66,7 @@ export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
         <div className="mb-6">
           <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-1 mb-2">Professional Summary</h2>
           <div 
-            className="text-sm" 
+            className="text-sm rich-text-content" 
             dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }}
           />
         </div>
@@ -85,12 +85,61 @@ export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
                   </div>
                   {item.date && <p className="text-gray-600 text-sm">{item.date}</p>}
                 </div>
-                {item.description && <div className="text-sm mt-1" dangerouslySetInnerHTML={{ __html: item.description }} />}
+                {item.description && (
+                  <div 
+                    className="text-sm mt-1 rich-text-content" 
+                    dangerouslySetInnerHTML={{ __html: item.description }} 
+                  />
+                )}
               </div>
             ))}
           </div>
         </div>
       ))}
+
+      <style jsx global>{`
+        .rich-text-content ul, .rich-text-content ol {
+          list-style-position: outside;
+          padding-left: 1.5rem;
+          margin: 0.5rem 0;
+        }
+        
+        .rich-text-content ul {
+          list-style-type: disc;
+        }
+        
+        .rich-text-content ol {
+          list-style-type: decimal;
+        }
+        
+        .rich-text-content li {
+          margin: 0.25rem 0;
+          display: list-item;
+        }
+        
+        .rich-text-content a {
+          color: inherit;
+          text-decoration: underline;
+        }
+        
+        .rich-text-content strong, 
+        .rich-text-content b {
+          font-weight: bold;
+        }
+        
+        .rich-text-content em,
+        .rich-text-content i {
+          font-style: italic;
+        }
+        
+        .rich-text-content u {
+          text-decoration: underline;
+        }
+        
+        .rich-text-content s {
+          text-decoration: line-through;
+        }
+      `}</style>
     </div>
   )
 }
