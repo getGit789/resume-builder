@@ -6,21 +6,12 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center">
-          <Link href="/" className="font-bold text-xl">
-            ResumeForge
-          </Link>
-          <nav className="ml-auto flex gap-4 sm:gap-6">
-            <Link href="/builder" className="text-sm font-medium">
-              Builder
+        <div style={{ display: 'table', width: '100%', height: '64px' }}>
+          <div style={{ display: 'table-cell', verticalAlign: 'middle', textAlign: 'center' }}>
+            <Link href="/" className="font-bold text-2xl">
+              ResumeForge
             </Link>
-            <Link href="/templates" className="text-sm font-medium">
-              Templates
-            </Link>
-            <Link href="/about" className="text-sm font-medium">
-              About
-            </Link>
-          </nav>
+          </div>
         </div>
       </header>
       <main className="flex-1">
@@ -40,12 +31,7 @@ export default function HomePage() {
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Link href="/builder">
                     <Button size="lg" className="gap-1.5">
-                      Get Started <ArrowRight className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                  <Link href="/templates">
-                    <Button size="lg" variant="outline">
-                      View Templates
+                      Create Resume <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
                 </div>
@@ -98,19 +84,16 @@ export default function HomePage() {
             </div>
           </div>
         </section>
-        <section className="w-full py-12 md:py-24 lg:py-32 bg-muted">
-          <div className="container px-4 md:px-6">
-            <div className="flex flex-col items-center justify-center space-y-4 text-center">
-              <div className="space-y-2">
-                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl">Features</h2>
-                <p className="max-w-[900px] text-muted-foreground md:text-xl">
-                  Everything you need to create a professional resume
-                </p>
-              </div>
-            </div>
-            <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+        <section className="w-full py-12 md:py-24 lg:py-32 bg-muted text-center">
+          <div className="container px-4 md:px-6 mx-auto">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl mb-4">Features</h2>
+            <p className="max-w-[900px] mx-auto text-muted-foreground md:text-xl mb-12">
+              Everything you need to create a professional resume
+            </p>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground mb-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -128,15 +111,14 @@ export default function HomePage() {
                     <path d="M9 15h6" />
                   </svg>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold">Real-time Preview</h3>
-                  <p className="text-muted-foreground">
-                    See changes to your resume in real-time with our split-screen editor.
-                  </p>
-                </div>
+                <h3 className="text-xl font-bold mb-2">Real-time Preview</h3>
+                <p className="text-muted-foreground">
+                  See changes to your resume in real-time with our split-screen editor.
+                </p>
               </div>
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground mb-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -155,15 +137,14 @@ export default function HomePage() {
                     <rect width="8" height="8" x="14" y="14" rx="2" />
                   </svg>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold">Multiple Templates</h3>
-                  <p className="text-muted-foreground">
-                    Choose from Professional, Minimalist, and Modern templates to match your style.
-                  </p>
-                </div>
+                <h3 className="text-xl font-bold mb-2">Multiple Templates</h3>
+                <p className="text-muted-foreground">
+                  Choose from Professional, Minimalist, and Modern templates to match your style.
+                </p>
               </div>
-              <div className="flex flex-col justify-center space-y-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              
+              <div className="flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground mb-4">
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     width="24"
@@ -180,28 +161,18 @@ export default function HomePage() {
                     <polyline points="14 2 14 8 20 8" />
                   </svg>
                 </div>
-                <div className="space-y-2">
-                  <h3 className="text-xl font-bold">One-click Export</h3>
-                  <p className="text-muted-foreground">Export your resume as a PDF with a single click.</p>
-                </div>
+                <h3 className="text-xl font-bold mb-2">One-click Export</h3>
+                <p className="text-muted-foreground">Export your resume as a PDF with a single click.</p>
               </div>
             </div>
           </div>
         </section>
       </main>
-      <footer className="border-t py-6 md:py-0">
-        <div className="container flex flex-col items-center justify-between gap-4 md:h-24 md:flex-row">
-          <p className="text-center text-sm leading-loose text-muted-foreground md:text-left">
+      <footer className="border-t py-6">
+        <div style={{ width: '100%', textAlign: 'center' }}>
+          <p className="text-sm leading-loose text-muted-foreground">
             © 2025 ResumeForge. All rights reserved.
           </p>
-          <div className="flex gap-4">
-            <Link href="/terms" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-              Terms
-            </Link>
-            <Link href="/privacy" className="text-sm text-muted-foreground underline-offset-4 hover:underline">
-              Privacy
-            </Link>
-          </div>
         </div>
       </footer>
     </div>
