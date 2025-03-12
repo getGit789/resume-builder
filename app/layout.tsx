@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Resume Builder',
+  title: 'ResumeForge',
   description: 'Create professional resumes with ease',
   generator: 'Next.js',
 }
