@@ -13,6 +13,45 @@ import ResumeEditor from "@/components/resume-editor"
 import ResumePreview from "@/components/resume-preview"
 import { defaultResumeData } from "@/lib/default-data"
 import { useMediaQuery } from "@/hooks/use-media-query"
+import { DragEndEvent } from "@dnd-kit/core"
+import Link from "next/link"
+
+// Define the ResumeData interface
+interface Link {
+  id: string;
+  title: string;
+  url: string;
+}
+
+interface PersonalInfo {
+  firstName: string;
+  lastName: string;
+  title: string;
+  email: string;
+  phone: string;
+  location: string;
+  summary: string;
+  links: Link[];
+}
+
+interface ResumeItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  date: string;
+  description: string;
+}
+
+interface ResumeSection {
+  id: string;
+  title: string;
+  items: ResumeItem[];
+}
+
+interface ResumeData {
+  personalInfo: PersonalInfo;
+  sections: ResumeSection[];
+}
 
 export default function BuilderPage() {
   const [resumeData, setResumeData] = useState(defaultResumeData)
@@ -49,7 +88,7 @@ export default function BuilderPage() {
     localStorage.setItem("resumeData", JSON.stringify(resumeData))
   }, [resumeData])
 
-  const handleDataChange = (newData) => {
+  const handleDataChange = (newData: ResumeData) => {
     setResumeData(newData)
 
     // Add to history
@@ -66,18 +105,26 @@ export default function BuilderPage() {
     setHistory(newHistory)
   }
 
-  const handleSectionOrderChange = (event) => {
+  const handleSectionOrderChange = (event: DragEndEvent) => {
     const { active, over } = event
+    
+    if (!over) return;
 
     if (active.id !== over.id) {
-      const oldIndex = resumeData.sections.findIndex((section) => section.id === active.id)
-      const newIndex = resumeData.sections.findIndex((section) => section.id === over.id)
-
-      const newSections = arrayMove(resumeData.sections, oldIndex, newIndex)
-      handleDataChange({
-        ...resumeData,
-        sections: newSections,
+      setResumeData((data) => {
+        const oldIndex = data.sections.findIndex((section) => section.id === active.id)
+        const newIndex = data.sections.findIndex((section) => section.id === over.id)
+        
+        return {
+          ...data,
+          sections: arrayMove(data.sections, oldIndex, newIndex),
+        }
       })
+      
+      // Add to history
+      const newHistoryIndex = historyIndex + 1
+      setHistory([...history.slice(0, newHistoryIndex), resumeData])
+      setHistoryIndex(newHistoryIndex)
     }
   }
 
@@ -115,7 +162,9 @@ export default function BuilderPage() {
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
-          <h1 className="font-bold text-xl">Resume Builder</h1>
+          <div className="w-[180px]">
+            {/* Logo removed */}
+          </div>
           <div className="flex items-center gap-4">
             <Select value={template} onValueChange={setTemplate}>
               <SelectTrigger className="w-[180px]">
