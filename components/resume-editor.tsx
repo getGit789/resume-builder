@@ -51,6 +51,12 @@ interface ResumeEditorProps {
   onChange: (data: ResumeData) => void
 }
 
+// Helper function to generate stable IDs
+const generateId = (() => {
+  let counter = 0;
+  return (prefix: string) => `${prefix}-${counter++}`;
+})();
+
 export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
   const handlePersonalInfoChange = (field: keyof PersonalInfo, value: string | Link[]) => {
     onChange({
@@ -110,7 +116,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
     const updatedSections = data.sections.map((section) => {
       if (section.id === sectionId) {
         const newItem = {
-          id: `item-${Date.now()}`,
+          id: generateId('item'),
           title: "",
           subtitle: "",
           date: "",
@@ -150,7 +156,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
 
   const addSection = (sectionType: string) => {
     const newSection: ResumeSection = {
-      id: `section-${Date.now()}`,
+      id: generateId('section'),
       title: sectionType,
       items: [],
     }
@@ -280,13 +286,14 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                         const newLinks: Link[] = [
                           ...(data.personalInfo.links || []),
                           {
-                            id: `link-${Date.now()}`,
+                            id: generateId('link'),
                             title: "",
                             url: "",
                           },
                         ]
                         handlePersonalInfoChange("links", newLinks)
                       }}
+                      suppressHydrationWarning
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Link
                     </Button>
@@ -323,6 +330,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                               const newLinks = data.personalInfo.links.filter((_, i) => i !== index)
                               handlePersonalInfoChange("links", newLinks)
                             }}
+                            suppressHydrationWarning
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
@@ -362,6 +370,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               variant="outline" 
               className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
               onClick={() => addSection("Custom Section")}
+              suppressHydrationWarning
             >
               <FileText className="h-6 w-6 text-primary" />
               <span>Custom Section</span>
@@ -371,6 +380,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               variant="outline" 
               className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
               onClick={() => addSection("Affiliations")}
+              suppressHydrationWarning
             >
               <Users className="h-6 w-6 text-primary" />
               <span>Affiliations</span>
@@ -380,6 +390,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               variant="outline" 
               className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
               onClick={() => addSection("Licenses & Certifications")}
+              suppressHydrationWarning
             >
               <Award className="h-6 w-6 text-primary" />
               <span>Licenses & Certifications</span>
@@ -389,6 +400,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               variant="outline" 
               className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
               onClick={() => addSection("Internships")}
+              suppressHydrationWarning
             >
               <Briefcase className="h-6 w-6 text-primary" />
               <span>Internships</span>
@@ -436,6 +448,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                 size="icon"
                 className="opacity-0 group-hover:opacity-100 transition-opacity"
                 onClick={() => onAddItem(section.id)}
+                suppressHydrationWarning
               >
                 <Plus className="h-4 w-4" />
               </Button>
@@ -447,6 +460,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                   const input = document.querySelector(`[value="${section.title}"]`) as HTMLInputElement
                   if (input) input.focus()
                 }}
+                suppressHydrationWarning
               >
                 <Pen className="h-4 w-4" />
               </Button>
@@ -512,6 +526,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                       size="sm"
                       onClick={() => onRemoveItem(section.id, item.id)}
                       className="mt-2"
+                      suppressHydrationWarning
                     >
                       <Trash2 className="h-4 w-4 mr-2" /> Remove Item
                     </Button>
@@ -520,7 +535,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
               </AccordionItem>
             ))}
           </Accordion>
-          <Button variant="outline" size="sm" onClick={() => onAddItem(section.id)} className="w-full">
+          <Button variant="outline" size="sm" onClick={() => onAddItem(section.id)} className="w-full" suppressHydrationWarning>
             <Plus className="h-4 w-4 mr-2" /> Add Item
           </Button>
         </CardContent>
