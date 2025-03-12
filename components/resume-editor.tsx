@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { GripVertical, Pen, Plus, Trash2 } from "lucide-react"
+import { GripVertical, Pen, Plus, Trash2, FileText, Award, Users, Briefcase } from "lucide-react"
 import { SimpleRichTextEditor } from "./simple-rich-text-editor"
 import { useState } from "react"
 
@@ -148,6 +148,19 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
     })
   }
 
+  const addSection = (sectionType: string) => {
+    const newSection: ResumeSection = {
+      id: `section-${Date.now()}`,
+      title: sectionType,
+      items: [],
+    }
+
+    onChange({
+      ...data,
+      sections: [...data.sections, newSection],
+    })
+  }
+
   return (
     <div className="space-y-6 p-6 max-w-3xl mx-auto bg-background">
       <Card>
@@ -190,117 +203,141 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               suppressHydrationWarning
             />
           </div>
-          <div className="space-y-2">
-            <label htmlFor="email" className="text-sm font-medium">
-              Email
-            </label>
-            <Input
-              id="email"
-              type="email"
-              value={data.personalInfo.email}
-              onChange={(e) => handlePersonalInfoChange("email", e.target.value)}
-              suppressHydrationWarning
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="phone" className="text-sm font-medium">
-              Phone
-            </label>
-            <Input
-              id="phone"
-              value={data.personalInfo.phone}
-              onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
-              suppressHydrationWarning
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="location" className="text-sm font-medium">
-              Location
-            </label>
-            <Input
-              id="location"
-              value={data.personalInfo.location}
-              onChange={(e) => handlePersonalInfoChange("location", e.target.value)}
-              suppressHydrationWarning
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="summary" className="text-base font-semibold">
-              Professional Summary
-            </label>
-            <SimpleRichTextEditor
-              value={data.personalInfo.summary}
-              onChange={(value) => handlePersonalInfoChange("summary", value)}
-              placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
-              showCharacterCount
-              characterLimit={400}
-            />
-          </div>
-          <div className="space-y-2 mt-4">
-            <div className="flex items-center justify-between">
-              <label className="text-base font-semibold">Professional Links</label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const newLinks: Link[] = [
-                    ...(data.personalInfo.links || []),
-                    {
-                      id: `link-${Date.now()}`,
-                      title: "",
-                      url: "",
-                    },
-                  ]
-                  handlePersonalInfoChange("links", newLinks)
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" /> Add Link
-              </Button>
-            </div>
-
-            {data.personalInfo.links && data.personalInfo.links.length > 0 ? (
-              <div className="space-y-3">
-                {data.personalInfo.links.map((link, index) => (
-                  <div key={link.id} className="flex items-center gap-2">
+          
+          <Accordion type="multiple" defaultValue={[]}>
+            <AccordionItem value="contact-info">
+              <AccordionTrigger className="text-base font-semibold">
+                Contact Information
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-4 pt-2">
+                  <div className="space-y-2">
+                    <label htmlFor="email" className="text-sm font-medium">
+                      Email
+                    </label>
                     <Input
-                      placeholder="Title (e.g. LinkedIn)"
-                      value={link.title}
-                      onChange={(e) => {
-                        const newLinks = [...data.personalInfo.links]
-                        newLinks[index] = { ...link, title: e.target.value }
-                        handlePersonalInfoChange("links", newLinks)
-                      }}
-                      className="flex-1"
+                      id="email"
+                      type="email"
+                      value={data.personalInfo.email}
+                      onChange={(e) => handlePersonalInfoChange("email", e.target.value)}
+                      suppressHydrationWarning
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="phone" className="text-sm font-medium">
+                      Phone
+                    </label>
                     <Input
-                      placeholder="URL (e.g. https://linkedin.com/in/...)"
-                      value={link.url}
-                      onChange={(e) => {
-                        const newLinks = [...data.personalInfo.links]
-                        newLinks[index] = { ...link, url: e.target.value }
-                        handlePersonalInfoChange("links", newLinks)
-                      }}
-                      className="flex-1"
+                      id="phone"
+                      value={data.personalInfo.phone}
+                      onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
+                      suppressHydrationWarning
                     />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="location" className="text-sm font-medium">
+                      Location
+                    </label>
+                    <Input
+                      id="location"
+                      value={data.personalInfo.location}
+                      onChange={(e) => handlePersonalInfoChange("location", e.target.value)}
+                      suppressHydrationWarning
+                    />
+                  </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="professional-summary">
+              <AccordionTrigger className="text-base font-semibold">
+                Professional Summary
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2 pt-2">
+                  <SimpleRichTextEditor
+                    value={data.personalInfo.summary}
+                    onChange={(value) => handlePersonalInfoChange("summary", value)}
+                    placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
+                    showCharacterCount
+                    characterLimit={400}
+                  />
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+            
+            <AccordionItem value="professional-links">
+              <AccordionTrigger className="text-base font-semibold">
+                Professional Links
+              </AccordionTrigger>
+              <AccordionContent>
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-end">
                     <Button
-                      variant="ghost"
-                      size="icon"
+                      variant="outline"
+                      size="sm"
                       onClick={() => {
-                        const newLinks = data.personalInfo.links.filter((_, i) => i !== index)
+                        const newLinks: Link[] = [
+                          ...(data.personalInfo.links || []),
+                          {
+                            id: `link-${Date.now()}`,
+                            title: "",
+                            url: "",
+                          },
+                        ]
                         handlePersonalInfoChange("links", newLinks)
                       }}
                     >
-                      <Trash2 className="h-4 w-4 text-destructive" />
+                      <Plus className="h-4 w-4 mr-2" /> Add Link
                     </Button>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No links added yet. Add links to your LinkedIn, GitHub, or personal website.
-              </p>
-            )}
-          </div>
+
+                  {data.personalInfo.links && data.personalInfo.links.length > 0 ? (
+                    <div className="space-y-3">
+                      {data.personalInfo.links.map((link, index) => (
+                        <div key={link.id} className="flex items-center gap-2">
+                          <Input
+                            placeholder="Title (e.g. LinkedIn)"
+                            value={link.title}
+                            onChange={(e) => {
+                              const newLinks = [...data.personalInfo.links]
+                              newLinks[index] = { ...link, title: e.target.value }
+                              handlePersonalInfoChange("links", newLinks)
+                            }}
+                            className="flex-1"
+                          />
+                          <Input
+                            placeholder="URL (e.g. https://linkedin.com/in/...)"
+                            value={link.url}
+                            onChange={(e) => {
+                              const newLinks = [...data.personalInfo.links]
+                              newLinks[index] = { ...link, url: e.target.value }
+                              handlePersonalInfoChange("links", newLinks)
+                            }}
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              const newLinks = data.personalInfo.links.filter((_, i) => i !== index)
+                              handlePersonalInfoChange("links", newLinks)
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No links added yet. Add links to your LinkedIn, GitHub, or personal website.
+                    </p>
+                  )}
+                </div>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         </CardContent>
       </Card>
 
@@ -314,6 +351,51 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
           onRemoveItem={removeItem}
         />
       ))}
+
+      <Card>
+        <CardHeader className="bg-muted/40">
+          <CardTitle className="text-xl font-semibold">Add Section</CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <div className="grid grid-cols-2 gap-4">
+            <Button 
+              variant="outline" 
+              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
+              onClick={() => addSection("Custom Section")}
+            >
+              <FileText className="h-6 w-6 text-primary" />
+              <span>Custom Section</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
+              onClick={() => addSection("Affiliations")}
+            >
+              <Users className="h-6 w-6 text-primary" />
+              <span>Affiliations</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
+              onClick={() => addSection("Licenses & Certifications")}
+            >
+              <Award className="h-6 w-6 text-primary" />
+              <span>Licenses & Certifications</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
+              onClick={() => addSection("Internships")}
+            >
+              <Briefcase className="h-6 w-6 text-primary" />
+              <span>Internships</span>
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -372,7 +454,7 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Accordion type="multiple" defaultValue={section.items.map((item) => item.id)}>
+          <Accordion type="multiple" defaultValue={[]}>
             {section.items.map((item) => (
               <AccordionItem key={item.id} value={item.id}>
                 <AccordionTrigger className="hover:no-underline">

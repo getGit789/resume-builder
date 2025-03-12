@@ -1,3 +1,5 @@
+"use client"
+
 // Define the interface for the resume data structure
 interface ResumeData {
   personalInfo: {
