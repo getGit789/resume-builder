@@ -1,4 +1,40 @@
-export function ModernTemplate({ data }) {
+"use client"
+
+// Define the interface for the resume data structure
+interface ResumeData {
+  personalInfo: {
+    firstName: string;
+    lastName: string;
+    title: string;
+    email?: string;
+    phone?: string;
+    location?: string;
+    links?: {
+      id: string;
+      url: string;
+      title: string;
+    }[];
+    summary?: string;
+  };
+  sections: {
+    id: string;
+    type?: string;
+    title: string;
+    items: {
+      id: string;
+      title: string;
+      subtitle: string;
+      date?: string;
+      description?: string;
+    }[];
+  }[];
+}
+
+interface ModernTemplateProps {
+  data: ResumeData;
+}
+
+export function ModernTemplate({ data }: ModernTemplateProps) {
   return (
     <div className="font-sans">
       <div className="flex flex-col md:flex-row gap-6 mb-6">
@@ -10,7 +46,10 @@ export function ModernTemplate({ data }) {
 
           {data.personalInfo.summary && (
             <div className="mt-4">
-              <p className="text-sm">{data.personalInfo.summary}</p>
+              <div 
+                className="text-sm rich-text-content" 
+                dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }}
+              />
             </div>
           )}
         </div>
@@ -56,7 +95,12 @@ export function ModernTemplate({ data }) {
                       {item.date && <p className="text-gray-600 text-sm">{item.date}</p>}
                     </div>
                     <p className="text-primary-foreground font-medium">{item.subtitle}</p>
-                    {item.description && <p className="text-sm mt-1">{item.description}</p>}
+                    {item.description && (
+                      <div 
+                        className="text-sm mt-1 rich-text-content" 
+                        dangerouslySetInnerHTML={{ __html: item.description }} 
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -76,7 +120,12 @@ export function ModernTemplate({ data }) {
                       {item.date && <p className="text-gray-600 text-sm">{item.date}</p>}
                     </div>
                     <p className="text-primary-foreground font-medium">{item.subtitle}</p>
-                    {item.description && <p className="text-sm mt-1">{item.description}</p>}
+                    {item.description && (
+                      <div 
+                        className="text-sm mt-1 rich-text-content" 
+                        dangerouslySetInnerHTML={{ __html: item.description }} 
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -84,6 +133,52 @@ export function ModernTemplate({ data }) {
           ))}
         </div>
       </div>
+
+      {/* Styling for rich text content */}
+      <style jsx global>{`
+        .rich-text-content ul, .rich-text-content ol {
+          list-style-position: outside;
+          padding-left: 1.5rem;
+          margin: 0.5rem 0;
+        }
+        
+        .rich-text-content ul {
+          list-style-type: square;
+        }
+        
+        .rich-text-content ol {
+          list-style-type: decimal;
+        }
+        
+        .rich-text-content li {
+          margin: 0.25rem 0;
+          display: list-item;
+        }
+        
+        .rich-text-content a {
+          color: #2563eb; /* Blue color */
+          text-decoration: underline;
+          font-weight: bold;
+        }
+        
+        .rich-text-content strong, 
+        .rich-text-content b {
+          font-weight: bold;
+        }
+        
+        .rich-text-content em,
+        .rich-text-content i {
+          font-style: italic;
+        }
+        
+        .rich-text-content u {
+          text-decoration: underline;
+        }
+        
+        .rich-text-content s {
+          text-decoration: line-through;
+        }
+      `}</style>
     </div>
   )
 }

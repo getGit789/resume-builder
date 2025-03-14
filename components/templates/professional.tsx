@@ -120,8 +120,9 @@ export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
         }
         
         .rich-text-content a {
-          color: inherit;
+          color: #2563eb; /* Blue color */
           text-decoration: underline;
+          font-weight: bold;
         }
         
         .rich-text-content strong, 
