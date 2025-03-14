@@ -4,17 +4,23 @@ import { ProfessionalTemplate } from "@/components/templates/professional"
 import { MinimalistTemplate } from "@/components/templates/minimalist"
 import { ModernTemplate } from "@/components/templates/modern"
 
-export default function ResumePreview({ data, template }) {
+interface ResumePreviewProps {
+  data: any;
+  template: string;
+  colorTheme?: string;
+}
+
+export default function ResumePreview({ data, template, colorTheme = "default" }: ResumePreviewProps) {
   const renderTemplate = () => {
     switch (template) {
       case "professional":
-        return <ProfessionalTemplate data={data} />
+        return <ProfessionalTemplate data={data} colorTheme={colorTheme} />
       case "minimalist":
-        return <MinimalistTemplate data={data} />
+        return <MinimalistTemplate data={data} colorTheme={colorTheme} />
       case "modern":
-        return <ModernTemplate data={data} />
+        return <ModernTemplate data={data} colorTheme={colorTheme} />
       default:
-        return <ProfessionalTemplate data={data} />
+        return <ProfessionalTemplate data={data} colorTheme={colorTheme} />
     }
   }
 

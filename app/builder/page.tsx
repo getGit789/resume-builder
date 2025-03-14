@@ -7,7 +7,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Undo, Redo } from "lucide-react"
+import { Download, Palette } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import ResumeEditor from "@/components/resume-editor"
 import ResumePreview from "@/components/resume-preview"
@@ -53,11 +53,21 @@ interface ResumeData {
   sections: ResumeSection[];
 }
 
+// Define color themes
+const colorThemes = [
+  { name: "Default", value: "default", color: "#000000" },
+  { name: "Blue", value: "blue", color: "#3B82F6" },
+  { name: "Green", value: "green", color: "#10B981" },
+  { name: "Purple", value: "purple", color: "#8B5CF6" },
+  { name: "Red", value: "red", color: "#EF4444" },
+  { name: "Orange", value: "orange", color: "#F97316" },
+  { name: "Teal", value: "teal", color: "#14B8A6" },
+];
+
 export default function BuilderPage() {
   const [resumeData, setResumeData] = useState(defaultResumeData)
   const [template, setTemplate] = useState("professional")
-  const [history, setHistory] = useState([defaultResumeData])
-  const [historyIndex, setHistoryIndex] = useState(0)
+  const [colorTheme, setColorTheme] = useState("default")
   const [activeTab, setActiveTab] = useState("edit")
   const { toast } = useToast()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
@@ -76,10 +86,20 @@ export default function BuilderPage() {
       try {
         const parsedData = JSON.parse(savedData)
         setResumeData(parsedData)
-        setHistory([parsedData])
       } catch (error) {
         console.error("Failed to parse saved resume data", error)
       }
+    }
+
+    // Load saved template and color theme if available
+    const savedTemplate = localStorage.getItem("resumeTemplate")
+    if (savedTemplate) {
+      setTemplate(savedTemplate)
+    }
+
+    const savedColorTheme = localStorage.getItem("resumeColorTheme")
+    if (savedColorTheme) {
+      setColorTheme(savedColorTheme)
     }
   }, [])
 
@@ -88,21 +108,17 @@ export default function BuilderPage() {
     localStorage.setItem("resumeData", JSON.stringify(resumeData))
   }, [resumeData])
 
+  // Save template and color theme to localStorage
+  useEffect(() => {
+    localStorage.setItem("resumeTemplate", template)
+  }, [template])
+
+  useEffect(() => {
+    localStorage.setItem("resumeColorTheme", colorTheme)
+  }, [colorTheme])
+
   const handleDataChange = (newData: ResumeData) => {
     setResumeData(newData)
-
-    // Add to history
-    const newHistory = history.slice(0, historyIndex + 1)
-    newHistory.push(newData)
-
-    // Limit history to 50 states to prevent memory issues
-    if (newHistory.length > 50) {
-      newHistory.shift()
-    } else {
-      setHistoryIndex(historyIndex + 1)
-    }
-
-    setHistory(newHistory)
   }
 
   const handleSectionOrderChange = (event: DragEndEvent) => {
@@ -120,25 +136,6 @@ export default function BuilderPage() {
           sections: arrayMove(data.sections, oldIndex, newIndex),
         }
       })
-      
-      // Add to history
-      const newHistoryIndex = historyIndex + 1
-      setHistory([...history.slice(0, newHistoryIndex), resumeData])
-      setHistoryIndex(newHistoryIndex)
-    }
-  }
-
-  const handleUndo = () => {
-    if (historyIndex > 0) {
-      setHistoryIndex(historyIndex - 1)
-      setResumeData(history[historyIndex - 1])
-    }
-  }
-
-  const handleRedo = () => {
-    if (historyIndex < history.length - 1) {
-      setHistoryIndex(historyIndex + 1)
-      setResumeData(history[historyIndex + 1])
     }
   }
 
@@ -176,17 +173,32 @@ export default function BuilderPage() {
                 <SelectItem value="modern">Modern</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex gap-2">
-              <Button variant="outline" size="icon" onClick={handleUndo} disabled={historyIndex === 0}>
-                <Undo className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="icon" onClick={handleRedo} disabled={historyIndex === history.length - 1}>
-                <Redo className="h-4 w-4" />
-              </Button>
-              <Button onClick={handleExportPDF}>
-                <Download className="mr-2 h-4 w-4" /> Export PDF
-              </Button>
-            </div>
+            
+            <Select value={colorTheme} onValueChange={setColorTheme}>
+              <SelectTrigger className="w-[180px]">
+                <div className="flex items-center gap-2">
+                  <Palette className="h-4 w-4" />
+                  <SelectValue placeholder="Select color theme" />
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                {colorThemes.map((theme) => (
+                  <SelectItem key={theme.value} value={theme.value}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="h-3 w-3 rounded-full" 
+                        style={{ backgroundColor: theme.color }}
+                      />
+                      {theme.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            
+            <Button onClick={handleExportPDF}>
+              <Download className="mr-2 h-4 w-4" /> Export PDF
+            </Button>
           </div>
         </div>
       </header>
@@ -209,7 +221,7 @@ export default function BuilderPage() {
               </DndContext>
             </div>
             <div className="overflow-y-auto bg-gray-50 p-4">
-              <ResumePreview data={resumeData} template={template} />
+              <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
             </div>
           </div>
         ) : (
@@ -236,7 +248,7 @@ export default function BuilderPage() {
               </DndContext>
             </TabsContent>
             <TabsContent value="preview" className="h-full overflow-y-auto bg-gray-50 p-4 m-0">
-              <ResumePreview data={resumeData} template={template} />
+              <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
             </TabsContent>
           </Tabs>
         )}

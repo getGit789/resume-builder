@@ -30,18 +30,38 @@ interface ResumeData {
   }[];
 }
 
+// Define valid color theme values
+type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
+
 interface ProfessionalTemplateProps {
   data: ResumeData;
+  colorTheme?: ColorTheme;
 }
 
-export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
+// Color theme mapping
+const themeColors: Record<ColorTheme, string> = {
+  default: "#000000",
+  blue: "#3B82F6",
+  green: "#10B981",
+  purple: "#8B5CF6",
+  red: "#EF4444",
+  orange: "#F97316",
+  teal: "#14B8A6",
+};
+
+export function ProfessionalTemplate({ data, colorTheme = "default" }: ProfessionalTemplateProps) {
+  // Get the theme color
+  const themeColor = themeColors[colorTheme] || themeColors.default;
+  
   return (
     <div className="font-serif">
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-2xl font-bold" style={{ color: themeColor }}>
           {data.personalInfo.firstName} {data.personalInfo.lastName}
         </h1>
-        <p className="text-lg text-gray-700">{data.personalInfo.title}</p>
+        <p className="text-lg text-gray-700">
+          {data.personalInfo.title}
+        </p>
         <div className="flex justify-center gap-4 mt-2 text-sm text-gray-600">
           {data.personalInfo.email && <span>{data.personalInfo.email}</span>}
           {data.personalInfo.phone && <span>• {data.personalInfo.phone}</span>}
@@ -66,7 +86,15 @@ export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
 
       {data.personalInfo.summary && (
         <div className="mb-6">
-          <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-1 mb-2">Professional Summary</h2>
+          <h2 
+            className="text-lg font-bold pb-1 mb-2"
+            style={{ 
+              color: themeColor,
+              borderBottom: `2px solid ${themeColor}` 
+            }}
+          >
+            Professional Summary
+          </h2>
           <div 
             className="text-sm rich-text-content" 
             dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }}
@@ -76,7 +104,15 @@ export function ProfessionalTemplate({ data }: ProfessionalTemplateProps) {
 
       {data.sections && data.sections.map((section) => (
         <div key={section.id} className="mb-6">
-          <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-1 mb-2">{section.title}</h2>
+          <h2 
+            className="text-lg font-bold pb-1 mb-2"
+            style={{ 
+              color: themeColor,
+              borderBottom: `2px solid ${themeColor}` 
+            }}
+          >
+            {section.title}
+          </h2>
           <div className="space-y-4">
             {section.items.map((item) => (
               <div key={item.id}>
