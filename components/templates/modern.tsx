@@ -176,11 +176,12 @@ export function ModernTemplate({ data, colorTheme = "default" }: ModernTemplateP
         .rich-text-content ul, .rich-text-content ol {
           list-style-position: outside;
           padding-left: 1.5rem;
-          margin: 0.5rem 0;
+          margin: 0;
+          line-height: normal;
         }
         
         .rich-text-content ul {
-          list-style-type: square;
+          list-style-type: disc;
         }
         
         .rich-text-content ol {
@@ -188,8 +189,34 @@ export function ModernTemplate({ data, colorTheme = "default" }: ModernTemplateP
         }
         
         .rich-text-content li {
-          margin: 0.25rem 0;
+          margin: 0;
+          padding: 0;
           display: list-item;
+          line-height: 1.2;
+          vertical-align: top;
+        }
+        
+        /* Remove the ::marker styling to avoid duplicate bullets */
+        .rich-text-content ul li::marker {
+          color: inherit;
+        }
+        
+        /* Add styles for handling line breaks */
+        .rich-text-content p {
+          margin: 0;
+          padding: 0;
+          line-height: 1.5;
+        }
+        
+        /* Ensure bullet points display properly */
+        .rich-text-content ul li, .rich-text-content ol li {
+          display: list-item !important;
+          list-style-position: outside !important;
+        }
+        
+        /* Handle line breaks in text */
+        .rich-text-content {
+          white-space: normal;
         }
         
         .rich-text-content a {
@@ -214,6 +241,115 @@ export function ModernTemplate({ data, colorTheme = "default" }: ModernTemplateP
         
         .rich-text-content s {
           text-decoration: line-through;
+        }
+        
+        /* Page break handling */
+        @media print {
+          .mb-6 {
+            margin-bottom: 1.5rem;
+            page-break-inside: avoid;
+          }
+          
+          h2 {
+            page-break-after: avoid;
+          }
+          
+          h3 {
+            page-break-after: avoid;
+          }
+          
+          .rich-text-content > div {
+            page-break-inside: avoid;
+          }
+          
+          /* Ensure layout works in print */
+          .flex {
+            display: flex !important;
+          }
+          
+          .flex-col {
+            flex-direction: column !important;
+          }
+          
+          .md\\:flex-row {
+            flex-direction: row !important;
+          }
+          
+          .justify-between {
+            justify-content: space-between !important;
+          }
+          
+          .gap-6 {
+            gap: 1.5rem !important;
+          }
+          
+          .grid {
+            display: grid !important;
+          }
+          
+          .md\\:grid-cols-3 {
+            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+          }
+          
+          .md\\:col-span-2 {
+            grid-column: span 2 / span 2 !important;
+          }
+          
+          .md\\:w-2\\/3 {
+            width: 66.666667% !important;
+          }
+          
+          .md\\:w-1\\/3 {
+            width: 33.333333% !important;
+          }
+          
+          .space-y-1 > * + * {
+            margin-top: 0.25rem !important;
+          }
+          
+          .space-y-4 > * + * {
+            margin-top: 1rem !important;
+          }
+          
+          .space-y-6 > * + * {
+            margin-top: 1.5rem !important;
+          }
+          
+          .mt-1 {
+            margin-top: 0.25rem !important;
+          }
+          
+          .mt-3 {
+            margin-top: 0.75rem !important;
+          }
+          
+          .mt-4 {
+            margin-top: 1rem !important;
+          }
+          
+          .mb-1 {
+            margin-bottom: 0.25rem !important;
+          }
+          
+          .mb-2 {
+            margin-bottom: 0.5rem !important;
+          }
+          
+          .mb-3 {
+            margin-bottom: 0.75rem !important;
+          }
+          
+          .p-4 {
+            padding: 1rem !important;
+          }
+          
+          .rounded-lg {
+            border-radius: 0.5rem !important;
+          }
+          
+          .bg-gray-50 {
+            background-color: #F9FAFB !important;
+          }
         }
       `}</style>
     </div>

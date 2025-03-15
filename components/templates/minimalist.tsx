@@ -152,11 +152,12 @@ export function MinimalistTemplate({ data, colorTheme = "default" }: ATSTemplate
         .rich-text-content ul, .rich-text-content ol {
           list-style-position: outside;
           padding-left: 1.5rem;
-          margin: 0.5rem 0;
+          margin: 0;
+          line-height: normal;
         }
         
         .rich-text-content ul {
-          list-style-type: square;
+          list-style-type: disc;
         }
         
         .rich-text-content ol {
@@ -164,8 +165,34 @@ export function MinimalistTemplate({ data, colorTheme = "default" }: ATSTemplate
         }
         
         .rich-text-content li {
-          margin: 0.25rem 0;
+          margin: 0;
+          padding: 0;
           display: list-item;
+          line-height: 1.2;
+          vertical-align: top;
+        }
+        
+        /* Remove the ::marker styling to avoid duplicate bullets */
+        .rich-text-content ul li::marker {
+          color: inherit;
+        }
+        
+        /* Add styles for handling line breaks */
+        .rich-text-content p {
+          margin: 0;
+          padding: 0;
+          line-height: 1.5;
+        }
+        
+        /* Ensure bullet points display properly */
+        .rich-text-content ul li, .rich-text-content ol li {
+          display: list-item !important;
+          list-style-position: outside !important;
+        }
+        
+        /* Handle line breaks in text */
+        .rich-text-content {
+          white-space: normal;
         }
         
         .rich-text-content a {
@@ -190,6 +217,55 @@ export function MinimalistTemplate({ data, colorTheme = "default" }: ATSTemplate
         
         .rich-text-content s {
           text-decoration: line-through;
+        }
+        
+        /* Page break handling */
+        @media print {
+          .mb-6 {
+            margin-bottom: 1.5rem;
+            page-break-inside: avoid;
+          }
+          
+          h2 {
+            page-break-after: avoid;
+          }
+          
+          h3 {
+            page-break-after: avoid;
+          }
+          
+          .rich-text-content > div {
+            page-break-inside: avoid;
+          }
+          
+          /* Ensure layout works in print */
+          .flex {
+            display: flex !important;
+          }
+          
+          .justify-between {
+            justify-content: space-between !important;
+          }
+          
+          .items-baseline {
+            align-items: baseline !important;
+          }
+          
+          .space-y-4 > * + * {
+            margin-top: 1rem !important;
+          }
+          
+          .mt-1 {
+            margin-top: 0.25rem !important;
+          }
+          
+          .mb-3 {
+            margin-bottom: 0.75rem !important;
+          }
+          
+          .mb-4 {
+            margin-bottom: 1rem !important;
+          }
         }
       `}</style>
     </div>

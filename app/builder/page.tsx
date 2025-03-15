@@ -173,6 +173,211 @@ export default function BuilderPage() {
         description: "Please wait while we generate your PDF...",
       });
       
+      // Create a clone of the preview element to avoid modifying the original
+      const clonedElement = previewElement.cloneNode(true) as HTMLElement;
+      
+      // Apply additional styles to ensure proper rendering in PDF
+      const styleElement = document.createElement('style');
+      styleElement.textContent = `
+        /* Reset any list styling to avoid duplicated bullets */
+        .rich-text-content ul li::before {
+          content: none !important;
+        }
+        
+        /* Fix bullet point styling and alignment */
+        .rich-text-content ul, .rich-text-content ol {
+          list-style-position: outside !important;
+          padding-left: 1.5rem !important;
+          margin: 0 !important;
+        }
+        
+        .rich-text-content ul {
+          list-style-type: disc !important;
+        }
+        
+        .rich-text-content ol {
+          list-style-type: decimal !important;
+        }
+        
+        /* Enhanced bullet point styling for PDF export */
+        .rich-text-content li {
+          margin: 0 !important;
+          padding: 0 !important;
+          display: list-item !important;
+          line-height: 1.4 !important;
+          vertical-align: top !important;
+          position: relative !important;
+        }
+        
+        /* Ensure proper spacing between list items */
+        .rich-text-content li + li {
+          margin-top: 0.1rem !important;
+        }
+        
+        .rich-text-content p {
+          margin: 0 !important;
+          padding: 0 !important;
+          line-height: 1.5 !important;
+        }
+        
+        .rich-text-content {
+          white-space: normal !important;
+        }
+        
+        /* Fix page breaks */
+        @page {
+          margin: 10mm;
+          size: A4;
+        }
+        
+        /* Avoid page breaks inside items */
+        .rich-text-content > div {
+          page-break-inside: avoid !important;
+        }
+        
+        /* Ensure proper spacing between sections */
+        .mb-6 {
+          margin-bottom: 1.5rem !important;
+          page-break-inside: avoid !important;
+        }
+        
+        /* Ensure section headers don't get separated from their content */
+        h2 {
+          page-break-after: avoid !important;
+        }
+        
+        /* Ensure job titles don't get separated from their descriptions */
+        h3 {
+          page-break-after: avoid !important;
+        }
+        
+        /* Fix layout for all templates */
+        .flex {
+          display: flex !important;
+        }
+        
+        .flex-col {
+          flex-direction: column !important;
+        }
+        
+        .md\\:flex-row {
+          flex-direction: row !important;
+        }
+        
+        .justify-center {
+          justify-content: center !important;
+        }
+        
+        .justify-between {
+          justify-content: space-between !important;
+        }
+        
+        .items-baseline {
+          align-items: baseline !important;
+        }
+        
+        .gap-4 {
+          gap: 1rem !important;
+        }
+        
+        .gap-6 {
+          gap: 1.5rem !important;
+        }
+        
+        .text-center {
+          text-align: center !important;
+        }
+        
+        .grid {
+          display: grid !important;
+        }
+        
+        .md\\:grid-cols-3 {
+          grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        }
+        
+        .md\\:col-span-2 {
+          grid-column: span 2 / span 2 !important;
+        }
+        
+        .md\\:w-2\\/3 {
+          width: 66.666667% !important;
+        }
+        
+        .md\\:w-1\\/3 {
+          width: 33.333333% !important;
+        }
+        
+        .space-y-1 > * + * {
+          margin-top: 0.25rem !important;
+        }
+        
+        .space-y-4 > * + * {
+          margin-top: 1rem !important;
+        }
+        
+        .space-y-6 > * + * {
+          margin-top: 1.5rem !important;
+        }
+        
+        .mt-1 {
+          margin-top: 0.25rem !important;
+        }
+        
+        .mt-2 {
+          margin-top: 0.5rem !important;
+        }
+        
+        .mt-3 {
+          margin-top: 0.75rem !important;
+        }
+        
+        .mt-4 {
+          margin-top: 1rem !important;
+        }
+        
+        .mb-1 {
+          margin-bottom: 0.25rem !important;
+        }
+        
+        .mb-2 {
+          margin-bottom: 0.5rem !important;
+        }
+        
+        .mb-3 {
+          margin-bottom: 0.75rem !important;
+        }
+        
+        .mb-4 {
+          margin-bottom: 1rem !important;
+        }
+        
+        .mb-6 {
+          margin-bottom: 1.5rem !important;
+        }
+        
+        .p-4 {
+          padding: 1rem !important;
+        }
+        
+        .pb-1 {
+          padding-bottom: 0.25rem !important;
+        }
+        
+        .rounded-lg {
+          border-radius: 0.5rem !important;
+        }
+        
+        .bg-gray-50 {
+          background-color: #F9FAFB !important;
+        }
+        
+        .border-b {
+          border-bottom-width: 1px !important;
+        }
+      `;
+      clonedElement.appendChild(styleElement);
+      
       // Dynamically import html2pdf to avoid SSR issues
       const html2pdf = (await import('html2pdf.js')).default;
       
@@ -181,16 +386,29 @@ export default function BuilderPage() {
         margin: 10,
         filename: `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true,
+          letterRendering: true,
+          logging: false,
+          scrollY: 0, // Prevent scrolling during capture
+          windowWidth: document.documentElement.offsetWidth // Use the current window width
+        },
         jsPDF: { 
           unit: 'mm', 
           format: 'a4', 
-          orientation: 'portrait' as 'portrait' | 'landscape'
-        }
+          orientation: 'portrait' as 'portrait' | 'landscape',
+          compress: true,
+          hotfixes: ["px_scaling"]
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
       };
       
+      // Add a small delay before generating the PDF to ensure all styles are applied
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       // Generate and download the PDF
-      await html2pdf().from(previewElement).set(options).save();
+      await html2pdf().from(clonedElement).set(options).save();
       
       // Show success toast
       toast({

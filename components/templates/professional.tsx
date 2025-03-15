@@ -139,7 +139,8 @@ export function ProfessionalTemplate({ data, colorTheme = "default" }: Professio
         .rich-text-content ul, .rich-text-content ol {
           list-style-position: outside;
           padding-left: 1.5rem;
-          margin: 0.5rem 0;
+          margin: 0;
+          line-height: normal;
         }
         
         .rich-text-content ul {
@@ -151,12 +152,35 @@ export function ProfessionalTemplate({ data, colorTheme = "default" }: Professio
         }
         
         .rich-text-content li {
-          margin: 0.25rem 0;
+          margin: 0;
+          padding: 0;
           display: list-item;
+          line-height: 1.2;
+          vertical-align: top;
+        }
+        
+        /* Remove the ::marker styling to avoid duplicate bullets */
+        .rich-text-content ul li::marker {
+          color: inherit;
+        }
+        
+        .rich-text-content p {
+          margin: 0;
+          padding: 0;
+          line-height: 1.5;
+        }
+        
+        .rich-text-content ul li, .rich-text-content ol li {
+          display: list-item !important;
+          list-style-position: outside !important;
+        }
+        
+        .rich-text-content {
+          white-space: normal;
         }
         
         .rich-text-content a {
-          color: #2563eb; /* Blue color */
+          color: #2563eb;
           text-decoration: underline;
           font-weight: bold;
         }
@@ -177,6 +201,55 @@ export function ProfessionalTemplate({ data, colorTheme = "default" }: Professio
         
         .rich-text-content s {
           text-decoration: line-through;
+        }
+        
+        /* Page break handling */
+        @media print {
+          .mb-6 {
+            margin-bottom: 1.5rem;
+            page-break-inside: avoid;
+          }
+          
+          h2 {
+            page-break-after: avoid;
+          }
+          
+          h3 {
+            page-break-after: avoid;
+          }
+          
+          .rich-text-content > div {
+            page-break-inside: avoid;
+          }
+          
+          /* Ensure flex layout works in print */
+          .flex {
+            display: flex !important;
+          }
+          
+          .justify-center {
+            justify-content: center !important;
+          }
+          
+          .justify-between {
+            justify-content: space-between !important;
+          }
+          
+          .gap-4 {
+            gap: 1rem !important;
+          }
+          
+          .text-center {
+            text-align: center !important;
+          }
+          
+          .mt-1 {
+            margin-top: 0.25rem !important;
+          }
+          
+          .mt-2 {
+            margin-top: 0.5rem !important;
+          }
         }
       `}</style>
     </div>
