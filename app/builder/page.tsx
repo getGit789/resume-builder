@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ATSChecker } from "@/components/ats-checker"
+import { GrammarChecker } from "@/components/grammar-checker"
 
 // Define the ResumeData interface
 interface Link {
@@ -791,7 +792,7 @@ export default function BuilderPage() {
             
             <div className="flex gap-2">
               <ATSChecker resumeData={resumeData} />
-              
+              <GrammarChecker resumeData={resumeData} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="gap-2">
