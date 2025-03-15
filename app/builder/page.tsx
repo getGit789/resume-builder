@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable"
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
@@ -71,6 +71,8 @@ export default function BuilderPage() {
   const [activeTab, setActiveTab] = useState("edit")
   const { toast } = useToast()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
+  const desktopPreviewRef = useRef<HTMLDivElement>(null)
+  const mobilePreviewRef = useRef<HTMLDivElement>(null)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -141,17 +143,67 @@ export default function BuilderPage() {
 
   const handleExportPDF = async () => {
     try {
-      // This would be implemented with react-to-pdf or a similar library
+      // Find the preview element based on whether we're in desktop or mobile view
+      const previewElement = isDesktop 
+        ? desktopPreviewRef.current
+        : (activeTab === "preview" ? mobilePreviewRef.current : null);
+      
+      if (!previewElement) {
+        // If we're on mobile and not on the preview tab, switch to it
+        if (!isDesktop && activeTab !== "preview") {
+          setActiveTab("preview");
+          toast({
+            title: "Please try again",
+            description: "Switched to preview tab. Please click Export PDF again.",
+          });
+          return;
+        }
+        
+        toast({
+          title: "Export failed",
+          description: "Could not find the resume preview element",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Show loading toast
+      toast({
+        title: "Exporting resume",
+        description: "Please wait while we generate your PDF...",
+      });
+      
+      // Dynamically import html2pdf to avoid SSR issues
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      // Set up options for html2pdf
+      const options = {
+        margin: 10,
+        filename: `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait' as 'portrait' | 'landscape'
+        }
+      };
+      
+      // Generate and download the PDF
+      await html2pdf().from(previewElement).set(options).save();
+      
+      // Show success toast
       toast({
         title: "Resume exported",
-        description: "Your resume has been exported as a PDF",
-      })
+        description: "Your resume has been downloaded as a PDF",
+      });
     } catch (error) {
+      console.error("PDF export error:", error);
       toast({
         title: "Export failed",
         description: "There was an error exporting your resume",
         variant: "destructive",
-      })
+      });
     }
   }
 
@@ -221,7 +273,9 @@ export default function BuilderPage() {
               </DndContext>
             </div>
             <div className="overflow-y-auto bg-gray-50 p-4">
-              <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+              <div ref={desktopPreviewRef}>
+                <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+              </div>
             </div>
           </div>
         ) : (
@@ -248,7 +302,9 @@ export default function BuilderPage() {
               </DndContext>
             </TabsContent>
             <TabsContent value="preview" className="h-full overflow-y-auto bg-gray-50 p-4 m-0">
-              <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+              <div ref={mobilePreviewRef}>
+                <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+              </div>
             </TabsContent>
           </Tabs>
         )}
