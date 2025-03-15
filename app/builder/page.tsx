@@ -7,7 +7,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Palette } from "lucide-react"
+import { Download, Palette, FileText, ExternalLink, ChevronDown } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import ResumeEditor from "@/components/resume-editor"
 import ResumePreview from "@/components/resume-preview"
@@ -15,6 +15,13 @@ import { defaultResumeData } from "@/lib/default-data"
 import { useMediaQuery } from "@/hooks/use-media-query"
 import { DragEndEvent } from "@dnd-kit/core"
 import Link from "next/link"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ATSChecker } from "@/components/ats-checker"
 
 // Define the ResumeData interface
 interface Link {
@@ -207,6 +214,540 @@ export default function BuilderPage() {
     }
   }
 
+  const handleExportDOCX = async () => {
+    try {
+      // Show loading toast
+      toast({
+        title: "Exporting resume",
+        description: "Please wait while we generate your DOCX file...",
+      });
+      
+      // Dynamically import docx library
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, WidthType, Table, TableRow, TableCell } = await import('docx');
+      
+      // Helper function to convert HTML to plain text
+      const htmlToPlainText = (html: string) => {
+        // Replace common HTML entities
+        let text = html
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+        
+        // Remove HTML tags but preserve line breaks
+        text = text
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<\/h[1-6]>/gi, '\n')
+          .replace(/<[^>]+>/g, '');
+        
+        return text.trim();
+      };
+      
+      // Helper function to extract list items from HTML
+      const extractListItems = (html: string) => {
+        const items: string[] = [];
+        // Replace the 's' flag with a workaround that makes '.' match newlines
+        // by replacing all newlines with a special character and then back
+        const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
+        const regex = /<li[^>]*>(.*?)<\/li>/g;
+        let match;
+        
+        while ((match = regex.exec(processedHtml)) !== null) {
+          const itemText = htmlToPlainText(match[1].replace(/§§NEWLINE§§/g, '\n'));
+          if (itemText.trim()) {
+            items.push(itemText);
+          }
+        }
+        
+        return items;
+      };
+      
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            // Name
+            new Paragraph({
+              text: `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`,
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+              thematicBreak: false,
+            }),
+            
+            // Title
+            new Paragraph({
+              text: resumeData.personalInfo.title,
+              alignment: AlignmentType.CENTER,
+              spacing: {
+                after: 200,
+              },
+            }),
+            
+            // Contact Info
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun(resumeData.personalInfo.email || ""),
+                resumeData.personalInfo.phone ? new TextRun(" • " + resumeData.personalInfo.phone) : new TextRun(""),
+                resumeData.personalInfo.location ? new TextRun(" • " + resumeData.personalInfo.location) : new TextRun(""),
+              ],
+              spacing: {
+                after: 200,
+              },
+            }),
+            
+            // Links
+            ...(resumeData.personalInfo.links && resumeData.personalInfo.links.length > 0 ? [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: resumeData.personalInfo.links.map((link, index) => {
+                  const children = [];
+                  if (index > 0) {
+                    children.push(new TextRun(" • "));
+                  }
+                  children.push(new TextRun({
+                    text: link.title,
+                    style: "Hyperlink",
+                  }));
+                  return children;
+                }).flat(),
+                spacing: {
+                  after: 400,
+                },
+              }),
+            ] : []),
+            
+            // Summary
+            ...(resumeData.personalInfo.summary ? [
+              new Paragraph({
+                text: "Professional Summary",
+                heading: HeadingLevel.HEADING_2,
+                thematicBreak: true,
+                spacing: {
+                  after: 200,
+                },
+              }),
+              ...(resumeData.personalInfo.summary.includes('<ul>') || resumeData.personalInfo.summary.includes('<li>') 
+                ? extractListItems(resumeData.personalInfo.summary).map(item => 
+                    new Paragraph({
+                      text: item,
+                      bullet: { level: 0 },
+                      indent: { left: 720 },
+                      spacing: { after: 100 },
+                    })
+                  )
+                : [new Paragraph({
+                    text: htmlToPlainText(resumeData.personalInfo.summary),
+                    spacing: { after: 400 },
+                  })]
+              ),
+            ] : []),
+            
+            // Sections
+            ...resumeData.sections.flatMap(section => {
+              const sectionElements = [
+                new Paragraph({
+                  text: section.title,
+                  heading: HeadingLevel.HEADING_2,
+                  thematicBreak: true,
+                  spacing: {
+                    after: 200,
+                  },
+                }),
+              ];
+              
+              // Add items
+              section.items.forEach(item => {
+                // Title and date
+                sectionElements.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: item.title,
+                        bold: true,
+                      }),
+                      item.date ? new TextRun({
+                        text: "  " + item.date,
+                        bold: false,
+                      }) : new TextRun(""),
+                    ],
+                    spacing: {
+                      after: 100,
+                    },
+                  })
+                );
+                
+                // Subtitle
+                if (item.subtitle) {
+                  sectionElements.push(
+                    new Paragraph({
+                      text: item.subtitle,
+                      spacing: {
+                        after: 100,
+                      },
+                    })
+                  );
+                }
+                
+                // Description - handle bullet points
+                if (item.description) {
+                  const descriptionText = item.description;
+                  
+                  // Check if the description contains bullet points
+                  if (descriptionText.includes('<ul>') || descriptionText.includes('<li>')) {
+                    // Extract list items
+                    const listItems = extractListItems(descriptionText);
+                    
+                    listItems.forEach(itemText => {
+                      sectionElements.push(
+                        new Paragraph({
+                          text: itemText,
+                          bullet: {
+                            level: 0,
+                          },
+                          indent: {
+                            left: 720, // 0.5 inches in twips
+                          },
+                          spacing: {
+                            after: 100,
+                          },
+                        })
+                      );
+                    });
+                  } else {
+                    // Regular text
+                    sectionElements.push(
+                      new Paragraph({
+                        text: htmlToPlainText(descriptionText),
+                        spacing: {
+                          after: 100,
+                        },
+                      })
+                    );
+                  }
+                }
+                
+                // Add spacing after each item
+                sectionElements.push(
+                  new Paragraph({
+                    text: "",
+                    spacing: {
+                      after: 200,
+                    },
+                  })
+                );
+              });
+              
+              return sectionElements;
+            }),
+          ],
+        }],
+      });
+      
+      // Generate and download the DOCX
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Show success toast
+      toast({
+        title: "Resume exported",
+        description: "Your resume has been downloaded as a DOCX file",
+      });
+    } catch (error) {
+      console.error("DOCX export error:", error);
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your resume to DOCX",
+        variant: "destructive",
+      });
+    }
+  }
+
+  const handleExportGoogleDocs = async () => {
+    try {
+      // Show loading toast
+      toast({
+        title: "Preparing for Google Docs",
+        description: "Creating document for Google Docs...",
+      });
+      
+      // Use the same document creation logic as DOCX export
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
+      
+      // Helper function to convert HTML to plain text (same as in handleExportDOCX)
+      const htmlToPlainText = (html: string) => {
+        // Replace common HTML entities
+        let text = html
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'");
+        
+        // Remove HTML tags but preserve line breaks
+        text = text
+          .replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<\/h[1-6]>/gi, '\n')
+          .replace(/<[^>]+>/g, '');
+        
+        return text.trim();
+      };
+      
+      // Helper function to extract list items from HTML (same as in handleExportDOCX)
+      const extractListItems = (html: string) => {
+        const items: string[] = [];
+        // Replace the 's' flag with a workaround that makes '.' match newlines
+        // by replacing all newlines with a special character and then back
+        const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
+        const regex = /<li[^>]*>(.*?)<\/li>/g;
+        let match;
+        
+        while ((match = regex.exec(processedHtml)) !== null) {
+          const itemText = htmlToPlainText(match[1].replace(/§§NEWLINE§§/g, '\n'));
+          if (itemText.trim()) {
+            items.push(itemText);
+          }
+        }
+        
+        return items;
+      };
+      
+      // Create document
+      const doc = new Document({
+        sections: [{
+          properties: {},
+          children: [
+            // Name
+            new Paragraph({
+              text: `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`,
+              heading: HeadingLevel.HEADING_1,
+              alignment: AlignmentType.CENTER,
+              thematicBreak: false,
+            }),
+            
+            // Title
+            new Paragraph({
+              text: resumeData.personalInfo.title,
+              alignment: AlignmentType.CENTER,
+              spacing: {
+                after: 200,
+              },
+            }),
+            
+            // Contact Info
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun(resumeData.personalInfo.email || ""),
+                resumeData.personalInfo.phone ? new TextRun(" • " + resumeData.personalInfo.phone) : new TextRun(""),
+                resumeData.personalInfo.location ? new TextRun(" • " + resumeData.personalInfo.location) : new TextRun(""),
+              ],
+              spacing: {
+                after: 200,
+              },
+            }),
+            
+            // Links
+            ...(resumeData.personalInfo.links && resumeData.personalInfo.links.length > 0 ? [
+              new Paragraph({
+                alignment: AlignmentType.CENTER,
+                children: resumeData.personalInfo.links.map((link, index) => {
+                  const children = [];
+                  if (index > 0) {
+                    children.push(new TextRun(" • "));
+                  }
+                  children.push(new TextRun({
+                    text: link.title,
+                    style: "Hyperlink",
+                  }));
+                  return children;
+                }).flat(),
+                spacing: {
+                  after: 400,
+                },
+              }),
+            ] : []),
+            
+            // Summary
+            ...(resumeData.personalInfo.summary ? [
+              new Paragraph({
+                text: "Professional Summary",
+                heading: HeadingLevel.HEADING_2,
+                thematicBreak: true,
+                spacing: {
+                  after: 200,
+                },
+              }),
+              ...(resumeData.personalInfo.summary.includes('<ul>') || resumeData.personalInfo.summary.includes('<li>') 
+                ? extractListItems(resumeData.personalInfo.summary).map(item => 
+                    new Paragraph({
+                      text: item,
+                      bullet: { level: 0 },
+                      indent: { left: 720 },
+                      spacing: { after: 100 },
+                    })
+                  )
+                : [new Paragraph({
+                    text: htmlToPlainText(resumeData.personalInfo.summary),
+                    spacing: { after: 400 },
+                  })]
+              ),
+            ] : []),
+            
+            // Sections
+            ...resumeData.sections.flatMap(section => {
+              const sectionElements = [
+                new Paragraph({
+                  text: section.title,
+                  heading: HeadingLevel.HEADING_2,
+                  thematicBreak: true,
+                  spacing: {
+                    after: 200,
+                  },
+                }),
+              ];
+              
+              // Add items
+              section.items.forEach(item => {
+                // Title and date
+                sectionElements.push(
+                  new Paragraph({
+                    children: [
+                      new TextRun({
+                        text: item.title,
+                        bold: true,
+                      }),
+                      item.date ? new TextRun({
+                        text: "  " + item.date,
+                        bold: false,
+                      }) : new TextRun(""),
+                    ],
+                    spacing: {
+                      after: 100,
+                    },
+                  })
+                );
+                
+                // Subtitle
+                if (item.subtitle) {
+                  sectionElements.push(
+                    new Paragraph({
+                      text: item.subtitle,
+                      spacing: {
+                        after: 100,
+                      },
+                    })
+                  );
+                }
+                
+                // Description - handle bullet points
+                if (item.description) {
+                  const descriptionText = item.description;
+                  
+                  // Check if the description contains bullet points
+                  if (descriptionText.includes('<ul>') || descriptionText.includes('<li>')) {
+                    // Extract list items
+                    const listItems = extractListItems(descriptionText);
+                    
+                    listItems.forEach(itemText => {
+                      sectionElements.push(
+                        new Paragraph({
+                          text: itemText,
+                          bullet: {
+                            level: 0,
+                          },
+                          indent: {
+                            left: 720, // 0.5 inches in twips
+                          },
+                          spacing: {
+                            after: 100,
+                          },
+                        })
+                      );
+                    });
+                  } else {
+                    // Regular text
+                    sectionElements.push(
+                      new Paragraph({
+                        text: htmlToPlainText(descriptionText),
+                        spacing: {
+                          after: 100,
+                        },
+                      })
+                    );
+                  }
+                }
+                
+                // Add spacing after each item
+                sectionElements.push(
+                  new Paragraph({
+                    text: "",
+                    spacing: {
+                      after: 200,
+                    },
+                  })
+                );
+              });
+              
+              return sectionElements;
+            }),
+          ],
+        }],
+      });
+      
+      // Generate the DOCX blob
+      const blob = await Packer.toBlob(doc);
+      
+      // Create a URL for the blob
+      const url = URL.createObjectURL(blob);
+      
+      // Create the Google Docs URL
+      const googleDocsUrl = `https://docs.google.com/document/create?usp=upload_and_import`;
+      
+      // Open Google Docs in a new tab
+      window.open(googleDocsUrl, '_blank');
+      
+      // Show instructions toast
+      toast({
+        title: "Google Docs opened",
+        description: "In Google Docs, use File > Import to upload the DOCX file that was just downloaded.",
+        duration: 10000, // Show for 10 seconds
+      });
+      
+      // Download the DOCX file for the user to import
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume_for_GoogleDocs.docx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+    } catch (error) {
+      console.error("Google Docs export error:", error);
+      toast({
+        title: "Export failed",
+        description: "There was an error preparing your resume for Google Docs",
+        variant: "destructive",
+      });
+    }
+  }
+
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -248,9 +789,30 @@ export default function BuilderPage() {
               </SelectContent>
             </Select>
             
-            <Button onClick={handleExportPDF}>
-              <Download className="mr-2 h-4 w-4" /> Export PDF
-            </Button>
+            <div className="flex gap-2">
+              <ATSChecker resumeData={resumeData} />
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button className="gap-2">
+                    <Download className="h-4 w-4" /> 
+                    Export
+                    <ChevronDown className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
+                    <Download className="mr-2 h-4 w-4" /> PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportDOCX} className="cursor-pointer">
+                    <FileText className="mr-2 h-4 w-4" /> DOCX
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportGoogleDocs} className="cursor-pointer">
+                    <ExternalLink className="mr-2 h-4 w-4" /> Google Docs
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </div>
       </header>

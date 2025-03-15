@@ -267,6 +267,8 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                     placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
                     showCharacterCount
                     characterLimit={400}
+                    aiSuggestionType="summary"
+                    jobTitle={data.personalInfo.title}
                   />
                 </div>
               </AccordionContent>
@@ -357,6 +359,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
           onItemChange={handleItemChange}
           onAddItem={addItem}
           onRemoveItem={removeItem}
+          jobTitle={data.personalInfo.title}
         />
       ))}
 
@@ -418,9 +421,10 @@ interface SortableSectionProps {
   onItemChange: (sectionId: string, itemId: string, field: keyof ResumeItem, value: string) => void
   onAddItem: (sectionId: string) => void
   onRemoveItem: (sectionId: string, itemId: string) => void
+  jobTitle: string
 }
 
-function SortableSection({ section, onSectionChange, onItemChange, onAddItem, onRemoveItem }: SortableSectionProps) {
+function SortableSection({ section, onSectionChange, onItemChange, onAddItem, onRemoveItem, jobTitle }: SortableSectionProps) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: section.id })
 
   const style = {
@@ -519,6 +523,8 @@ function SortableSection({ section, onSectionChange, onItemChange, onAddItem, on
                         placeholder="Describe your responsibilities, achievements, and key contributions..."
                         showCharacterCount={false}
                         characterLimit={400}
+                        aiSuggestionType="description"
+                        jobTitle={jobTitle}
                       />
                     </div>
                     <Button

@@ -43,20 +43,23 @@
   -moz-user-select: text !important;
   -ms-user-select: text !important;
   cursor: text !important;
-  white-space: pre-wrap !important;
+  white-space: normal !important;
   word-break: break-word !important;
 }
 
 .richTextEditor p {
-  margin-bottom: 0.5rem;
-  min-height: 1em;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.5 !important;
+  min-height: 1em !important;
 }
 
 /* Improved list styling */
 .richTextEditor ul, .richTextEditor ol {
   list-style-position: outside !important;
   padding-left: 1.5rem !important;
-  margin-bottom: 0.5rem !important;
+  margin: 0 !important;
+  line-height: normal !important;
   display: block !important;
 }
 
@@ -69,9 +72,11 @@
 }
 
 .richTextEditor li {
-  margin-bottom: 0.25rem !important;
+  margin: 0 !important;
+  padding: 0 !important;
   display: list-item !important;
   list-style: inherit !important;
+  line-height: 1.2 !important;
 }
 
 /* Ensure empty list items are visible */

@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "./ui/button"
 import { cn } from "@/lib/utils"
 import styles from "./rich-text-editor.module.css"
+import { AISuggestionButton } from "./ai-suggestion-button"
 
 interface SimpleRichTextEditorProps {
   value: string
@@ -14,6 +15,8 @@ interface SimpleRichTextEditorProps {
   characterLimit?: number
   showCharacterCount?: boolean
   showFormatting?: boolean
+  aiSuggestionType?: 'summary' | 'description' | 'skills'
+  jobTitle?: string
 }
 
 // Simple HTML sanitizer
@@ -101,6 +104,8 @@ export function SimpleRichTextEditor({
   characterLimit = 400,
   showCharacterCount = false,
   showFormatting = true,
+  aiSuggestionType,
+  jobTitle = "Software Engineer"
 }: SimpleRichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -200,11 +205,36 @@ export function SimpleRichTextEditor({
         });
       }
     } else if (command === "insertUnorderedList") {
-      document.execCommand("insertUnorderedList", false);
-      
-      // Fix empty lists
-      if (editorRef.current.innerHTML.includes('<ul><br></ul>')) {
-        editorRef.current.innerHTML = editorRef.current.innerHTML.replace('<ul><br></ul>', '<ul><li><br></li></ul>');
+      // Instead of using the browser's default list formatting, we'll create our own
+      const selection = window.getSelection();
+      if (!selection || selection.rangeCount === 0) {
+        // If no selection, just insert an empty list
+        const listHtml = '<ul style="margin: 0; padding-left: 1.5rem;"><li style="margin: 0; padding: 0; line-height: 1.5;"></li></ul>';
+        document.execCommand('insertHTML', false, listHtml);
+      } else {
+        // Get the selected text
+        const range = selection.getRangeAt(0);
+        const selectedText = range.toString();
+        
+        if (selectedText) {
+          // Split the selected text by lines
+          const lines = selectedText.split('\n').filter(line => line.trim() !== '');
+          
+          // Create a list with the selected text
+          const listItems = lines.map(line => 
+            `<li style="margin: 0; padding: 0; line-height: 1.5;">${line}</li>`
+          ).join('');
+          
+          const listHtml = `<ul style="margin: 0; padding-left: 1.5rem;">${listItems}</ul>`;
+          
+          // Delete the selected text and insert the list
+          document.execCommand('delete', false);
+          document.execCommand('insertHTML', false, listHtml);
+        } else {
+          // Just insert an empty list at the cursor position
+          const listHtml = '<ul style="margin: 0; padding-left: 1.5rem;"><li style="margin: 0; padding: 0; line-height: 1.5;"></li></ul>';
+          document.execCommand('insertHTML', false, listHtml);
+        }
       }
     } else {
       // Apply standard formatting (bold, italic, etc.)
@@ -232,11 +262,34 @@ export function SimpleRichTextEditor({
     if (isEmpty) {
       onChange('');
     } else {
-      // Fix empty lists
+      // Fix list formatting
       let fixedContent = content;
+      
+      // Fix empty lists
       if (fixedContent.includes('<ul><br></ul>')) {
         fixedContent = fixedContent.replace('<ul><br></ul>', '<ul><li><br></li></ul>');
-        editorRef.current.innerHTML = fixedContent;
+      }
+      
+      // Fix list styling to ensure consistent spacing
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = fixedContent;
+      
+      // Apply consistent styling to all lists
+      const lists = tempDiv.querySelectorAll('ul, ol');
+      lists.forEach(list => {
+        list.setAttribute('style', 'margin: 0; padding-left: 1.5rem;');
+        
+        // Fix list items
+        const items = list.querySelectorAll('li');
+        items.forEach(item => {
+          item.setAttribute('style', 'margin: 0; padding: 0; line-height: 1.5;');
+        });
+      });
+      
+      // Update the editor with the fixed content if changes were made
+      if (tempDiv.innerHTML !== fixedContent) {
+        editorRef.current.innerHTML = tempDiv.innerHTML;
+        fixedContent = tempDiv.innerHTML;
       }
       
       onChange(sanitizeHtml(fixedContent));
@@ -270,7 +323,7 @@ export function SimpleRichTextEditor({
       }
     }
     
-    // Handle Enter in empty list items to exit the list
+    // Handle Enter in list items
     if (e.key === 'Enter' && !e.shiftKey) {
       const selection = window.getSelection();
       if (!selection || selection.rangeCount === 0) return;
@@ -289,26 +342,110 @@ export function SimpleRichTextEditor({
         node = node.parentNode as Node;
       }
       
-      // If we're in an empty list item, exit the list
-      if (listItem && (!listItem.textContent || listItem.textContent.trim() === '')) {
-        e.preventDefault();
-        document.execCommand('insertParagraph', false);
-        document.execCommand('outdent', false);
-        updateFormatState();
-        handleInput();
+      // If we're in a list item
+      if (listItem) {
+        // If the list item is empty, exit the list
+        if (!listItem.textContent || listItem.textContent.trim() === '') {
+          e.preventDefault();
+          document.execCommand('insertParagraph', false);
+          document.execCommand('outdent', false);
+          updateFormatState();
+          handleInput();
+        } else {
+          // If the list item has content, create a new list item with proper styling
+          e.preventDefault();
+          
+          // Insert a new list item with proper styling
+          const newListItem = document.createElement('li');
+          newListItem.setAttribute('style', 'margin: 0; padding: 0; line-height: 1.5;');
+          
+          // Insert the new list item
+          document.execCommand('insertHTML', false, newListItem.outerHTML);
+          
+          updateFormatState();
+          handleInput();
+        }
       }
     }
   };
 
   const characterCount = value.length;
 
+  const handleAISuggestion = (suggestion: string) => {
+    if (editorRef.current) {
+      // For skills, we want to append them to existing content
+      if (aiSuggestionType === 'skills') {
+        const currentContent = editorRef.current.innerHTML;
+        editorRef.current.innerHTML = currentContent ? `${currentContent}, ${suggestion}` : suggestion;
+      } else {
+        // For other types, we replace the content
+        // Process the suggestion to ensure proper HTML formatting
+        let formattedSuggestion = suggestion;
+        
+        // If the suggestion contains bullet points (starts with •), format it as a list
+        if (suggestion.includes('•')) {
+          const lines = suggestion.split('\n').filter(line => line.trim() !== '');
+          
+          // Check if all lines start with bullet points
+          const allBullets = lines.every(line => line.trim().startsWith('•'));
+          
+          if (allBullets) {
+            // Format as an unordered list with no extra spacing
+            formattedSuggestion = '<ul style="margin: 0; padding-left: 1.5rem; line-height: normal;">' + 
+              lines.map(line => {
+                // Remove the bullet point and trim
+                const content = line.trim().substring(1).trim();
+                return `<li style="margin: 0; padding: 0; line-height: 1.2;">${content}</li>`;
+              }).join('') + 
+              '</ul>';
+          } else {
+            // Some lines have bullets, some don't
+            formattedSuggestion = lines.map(line => {
+              if (line.trim().startsWith('•')) {
+                // For bullet points, create a mini list for each bullet
+                const content = line.trim().substring(1).trim();
+                return `<ul style="margin: 0; padding-left: 1.5rem; line-height: normal;"><li style="margin: 0; padding: 0; line-height: 1.2;">${content}</li></ul>`;
+              } else {
+                return `<p style="margin: 0; padding: 0; line-height: 1.5;">${line}</p>`;
+              }
+            }).join('');
+          }
+        } else if (suggestion.includes('\n')) {
+          // If it contains line breaks but no bullets, wrap each line in a paragraph
+          formattedSuggestion = suggestion.split('\n')
+            .filter(line => line.trim() !== '')
+            .map(line => `<p style="margin: 0; padding: 0; line-height: 1.5;">${line}</p>`)
+            .join('');
+        }
+        
+        editorRef.current.innerHTML = formattedSuggestion;
+      }
+      
+      // Update state and trigger onChange
+      setShowPlaceholder(false);
+      onChange(sanitizeHtml(editorRef.current.innerHTML));
+      
+      // Update format state
+      updateFormatState();
+    }
+  };
+
   return (
     <div className={cn("relative group", className)}>
       <div className="space-y-2">
         {placeholder && (
-          <p className="text-sm text-muted-foreground mb-2">
-            {placeholder}
-          </p>
+          <div className="flex justify-between items-center mb-2">
+            <p className="text-sm text-muted-foreground">
+              {placeholder}
+            </p>
+            {aiSuggestionType && (
+              <AISuggestionButton 
+                type={aiSuggestionType} 
+                jobTitle={jobTitle}
+                onSelectSuggestion={handleAISuggestion}
+              />
+            )}
+          </div>
         )}
         
         {showFormatting && (
@@ -378,6 +515,17 @@ export function SimpleRichTextEditor({
             >
               <Link className="h-4 w-4" />
             </Button>
+            
+            {/* If no placeholder is provided, show the AI suggestion button here */}
+            {aiSuggestionType && !placeholder && (
+              <div className="ml-auto">
+                <AISuggestionButton 
+                  type={aiSuggestionType} 
+                  jobTitle={jobTitle}
+                  onSelectSuggestion={handleAISuggestion}
+                />
+              </div>
+            )}
           </div>
         )}
         <div className="relative">
@@ -396,7 +544,7 @@ export function SimpleRichTextEditor({
               MozUserSelect: 'text',
               msUserSelect: 'text',
               cursor: 'text',
-              whiteSpace: 'pre-wrap',
+              whiteSpace: 'normal',
               wordBreak: 'break-word'
             }}
             onFocus={() => {
