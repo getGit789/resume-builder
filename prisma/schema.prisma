@@ -1,0 +1,50 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  resumes       Resume[]
+}
+
+model Resume {
+  id            String    @id @default(cuid())
+  name          String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String?
+  user          User?     @relation(fields: [userId], references: [id])
+  data          Json      // Stores the entire resume data structure
+  template      String    @default("professional")
+  colorTheme    String    @default("default")
+  isPublic      Boolean   @default(false)
+  shareToken    String?   @unique
+  exports       Export[]
+}
+
+model Export {
+  id            String    @id @default(cuid())
+  resumeId      String
+  resume        Resume    @relation(fields: [resumeId], references: [id])
+  format        String    // "pdf", "docx", etc.
+  status        String    // "pending", "processing", "completed", "failed"
+  url           String?   // URL to the exported file
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  error         String?   // Error message if export failed
+}

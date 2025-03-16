@@ -1,60 +1,23 @@
 "use client"
 
-// Define the interface for the resume data structure
-interface ResumeData {
-  personalInfo: {
-    firstName: string;
-    lastName: string;
-    title: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-    links?: {
-      id: string;
-      url: string;
-      title: string;
-    }[];
-    summary?: string;
-  };
-  sections?: {
-    id: string;
-    type: string;
-    title: string;
-    items: {
-      id: string;
-      title: string;
-      subtitle: string;
-      date?: string;
-      description?: string;
-    }[];
-  }[];
-}
-
-// Define valid color theme values
-type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
+import { ColorTheme, ResumeData, themeColors } from "@/types"
 
 interface ProfessionalTemplateProps {
   data: ResumeData;
   colorTheme?: ColorTheme;
+  font?: string;
 }
 
-// Color theme mapping
-const themeColors: Record<ColorTheme, string> = {
-  default: "#000000",
-  blue: "#3B82F6",
-  green: "#10B981",
-  purple: "#8B5CF6",
-  red: "#EF4444",
-  orange: "#F97316",
-  teal: "#14B8A6",
-};
-
-export function ProfessionalTemplate({ data, colorTheme = "default" }: ProfessionalTemplateProps) {
+export function ProfessionalTemplate({ 
+  data, 
+  colorTheme = "default",
+  font = "'Inter', sans-serif"
+}: ProfessionalTemplateProps) {
   // Get the theme color
   const themeColor = themeColors[colorTheme] || themeColors.default;
   
   return (
-    <div className="font-serif">
+    <div className="font-serif" style={{ fontFamily: font }}>
       <div className="text-center mb-6">
         <h1 className="text-2xl font-bold" style={{ color: themeColor }}>
           {data.personalInfo.firstName} {data.personalInfo.lastName}

@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ATSChecker } from "@/components/ats-checker"
 import { GrammarChecker } from "@/components/grammar-checker"
+import { generatePDF, generateDOCX } from '@/lib/pdf-utils'
 
 // Define the ResumeData interface
 interface Link {
@@ -62,25 +63,75 @@ interface ResumeData {
 }
 
 // Define color themes
+// Define valid color theme values
+type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
+
 const colorThemes = [
-  { name: "Default", value: "default", color: "#000000" },
-  { name: "Blue", value: "blue", color: "#3B82F6" },
-  { name: "Green", value: "green", color: "#10B981" },
-  { name: "Purple", value: "purple", color: "#8B5CF6" },
-  { name: "Red", value: "red", color: "#EF4444" },
-  { name: "Orange", value: "orange", color: "#F97316" },
-  { name: "Teal", value: "teal", color: "#14B8A6" },
+  { name: "Default", value: "default" as ColorTheme, color: "#000000" },
+  { name: "Blue", value: "blue" as ColorTheme, color: "#3B82F6" },
+  { name: "Green", value: "green" as ColorTheme, color: "#10B981" },
+  { name: "Purple", value: "purple" as ColorTheme, color: "#8B5CF6" },
+  { name: "Red", value: "red" as ColorTheme, color: "#EF4444" },
+  { name: "Orange", value: "orange" as ColorTheme, color: "#F97316" },
+  { name: "Teal", value: "teal" as ColorTheme, color: "#14B8A6" },
 ];
+
+// Utility functions for export
+const htmlToPlainText = (html: string) => {
+  // Replace common HTML entities
+  let text = html
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+  
+  // Remove HTML tags but preserve line breaks
+  text = text
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<\/h[1-6]>/gi, '\n')
+    .replace(/<[^>]+>/g, '');
+  
+  return text.trim();
+};
+
+const extractListItems = (html: string) => {
+  const items: string[] = [];
+  // Replace newlines with a special character and then back
+  const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
+  
+  // Extract list items
+  const listItemRegex = /<li[^>]*>(.*?)<\/li>/gi;
+  let match;
+  
+  while ((match = listItemRegex.exec(processedHtml)) !== null) {
+    // Clean up the list item text
+    let itemText = match[1]
+      .replace(/<[^>]+>/g, '') // Remove any nested HTML tags
+      .replace(/§§NEWLINE§§/g, '\n') // Restore newlines
+      .trim();
+    
+    if (itemText) {
+      items.push(itemText);
+    }
+  }
+  
+  return items;
+};
 
 export default function BuilderPage() {
   const [resumeData, setResumeData] = useState(defaultResumeData)
   const [template, setTemplate] = useState("professional")
-  const [colorTheme, setColorTheme] = useState("default")
+  const [colorTheme, setColorTheme] = useState<ColorTheme>("default")
   const [activeTab, setActiveTab] = useState("edit")
   const { toast } = useToast()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const desktopPreviewRef = useRef<HTMLDivElement>(null)
   const mobilePreviewRef = useRef<HTMLDivElement>(null)
+  const [isExporting, setIsExporting] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -100,18 +151,24 @@ export default function BuilderPage() {
         console.error("Failed to parse saved resume data", error)
       }
     }
-
-    // Load saved template and color theme if available
+    
+    // Load saved template from localStorage if available
     const savedTemplate = localStorage.getItem("resumeTemplate")
     if (savedTemplate) {
       setTemplate(savedTemplate)
     }
-
+    
+    // Load saved color theme from localStorage if available
     const savedColorTheme = localStorage.getItem("resumeColorTheme")
-    if (savedColorTheme) {
+    if (savedColorTheme && isValidColorTheme(savedColorTheme)) {
       setColorTheme(savedColorTheme)
     }
   }, [])
+
+  // Helper function to validate color theme
+  const isValidColorTheme = (theme: string): theme is ColorTheme => {
+    return ["default", "blue", "green", "purple", "red", "orange", "teal"].includes(theme);
+  }
 
   // Save changes to localStorage
   useEffect(() => {
@@ -151,330 +208,91 @@ export default function BuilderPage() {
 
   const handleExportPDF = async () => {
     try {
-      // Find the preview element based on whether we're in desktop or mobile view
-      const previewElement = isDesktop 
-        ? desktopPreviewRef.current
-        : (activeTab === "preview" ? mobilePreviewRef.current : null);
+      setIsExporting(true);
       
-      if (!previewElement) {
-        // If we're on mobile and not on the preview tab, switch to it
-        if (!isDesktop && activeTab !== "preview") {
-          setActiveTab("preview");
-          toast({
-            title: "Please try again",
-            description: "Switched to preview tab. Please click Export PDF again.",
-          });
-          return;
-        }
-        
-        toast({
-          title: "Export failed",
-          description: "Could not find the resume preview element",
-          variant: "destructive",
-        });
-        return;
+      // Get the resume preview element
+      const resumeElement = document.getElementById('resume-preview');
+      if (!resumeElement) {
+        throw new Error('Resume preview element not found');
       }
       
-      // Show loading toast
+      // Wait for fonts to load
+      await document.fonts.ready;
+      
+      // Generate PDF
+      const pdfBlob = await generatePDF(resumeElement, `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.pdf`);
+      
+      // Create a download link
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
       toast({
-        title: "Exporting resume",
-        description: "Please wait while we generate your PDF...",
-      });
-      
-      // Dynamically import html2pdf to avoid SSR issues
-      const html2pdf = (await import('html2pdf.js')).default;
-      
-      // Set up options for html2pdf
-      const options = {
-        margin: 10,
-        filename: `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait' as 'portrait' | 'landscape'
-        }
-      };
-      
-      // Generate and download the PDF
-      await html2pdf().from(previewElement).set(options).save();
-      
-      // Show success toast
-      toast({
-        title: "Resume exported",
-        description: "Your resume has been downloaded as a PDF",
+        title: 'PDF Export Successful',
+        description: 'Your resume has been exported as a PDF.',
       });
     } catch (error) {
-      console.error("PDF export error:", error);
+      console.error('PDF export error:', error);
       toast({
-        title: "Export failed",
-        description: "There was an error exporting your resume",
-        variant: "destructive",
+        title: 'PDF Export Failed',
+        description: 'There was an error exporting your resume. Please try again.',
+        variant: 'destructive',
       });
+    } finally {
+      setIsExporting(false);
     }
-  }
+  };
 
   const handleExportDOCX = async () => {
     try {
-      // Show loading toast
-      toast({
-        title: "Exporting resume",
-        description: "Please wait while we generate your DOCX file...",
-      });
+      setIsExporting(true);
       
-      // Dynamically import docx library
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType, BorderStyle, WidthType, Table, TableRow, TableCell } = await import('docx');
+      // Get the resume preview element
+      const resumeElement = document.getElementById('resume-preview');
+      if (!resumeElement) {
+        throw new Error('Resume preview element not found');
+      }
       
-      // Helper function to convert HTML to plain text
-      const htmlToPlainText = (html: string) => {
-        // Replace common HTML entities
-        let text = html
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
-        
-        // Remove HTML tags but preserve line breaks
-        text = text
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<\/div>/gi, '\n')
-          .replace(/<\/h[1-6]>/gi, '\n')
-          .replace(/<[^>]+>/g, '');
-        
-        return text.trim();
-      };
+      // Wait for fonts to load
+      await document.fonts.ready;
       
-      // Helper function to extract list items from HTML
-      const extractListItems = (html: string) => {
-        const items: string[] = [];
-        // Replace the 's' flag with a workaround that makes '.' match newlines
-        // by replacing all newlines with a special character and then back
-        const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
-        const regex = /<li[^>]*>(.*?)<\/li>/g;
-        let match;
-        
-        while ((match = regex.exec(processedHtml)) !== null) {
-          const itemText = htmlToPlainText(match[1].replace(/§§NEWLINE§§/g, '\n'));
-          if (itemText.trim()) {
-            items.push(itemText);
-          }
-        }
-        
-        return items;
-      };
+      // Generate DOCX
+      const docxBlob = await generateDOCX(resumeElement, `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.docx`);
       
-      // Create document
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [
-            // Name
-            new Paragraph({
-              text: `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`,
-              heading: HeadingLevel.HEADING_1,
-              alignment: AlignmentType.CENTER,
-              thematicBreak: false,
-            }),
-            
-            // Title
-            new Paragraph({
-              text: resumeData.personalInfo.title,
-              alignment: AlignmentType.CENTER,
-              spacing: {
-                after: 200,
-              },
-            }),
-            
-            // Contact Info
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [
-                new TextRun(resumeData.personalInfo.email || ""),
-                resumeData.personalInfo.phone ? new TextRun(" • " + resumeData.personalInfo.phone) : new TextRun(""),
-                resumeData.personalInfo.location ? new TextRun(" • " + resumeData.personalInfo.location) : new TextRun(""),
-              ],
-              spacing: {
-                after: 200,
-              },
-            }),
-            
-            // Links
-            ...(resumeData.personalInfo.links && resumeData.personalInfo.links.length > 0 ? [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: resumeData.personalInfo.links.map((link, index) => {
-                  const children = [];
-                  if (index > 0) {
-                    children.push(new TextRun(" • "));
-                  }
-                  children.push(new TextRun({
-                    text: link.title,
-                    style: "Hyperlink",
-                  }));
-                  return children;
-                }).flat(),
-                spacing: {
-                  after: 400,
-                },
-              }),
-            ] : []),
-            
-            // Summary
-            ...(resumeData.personalInfo.summary ? [
-              new Paragraph({
-                text: "Professional Summary",
-                heading: HeadingLevel.HEADING_2,
-                thematicBreak: true,
-                spacing: {
-                  after: 200,
-                },
-              }),
-              ...(resumeData.personalInfo.summary.includes('<ul>') || resumeData.personalInfo.summary.includes('<li>') 
-                ? extractListItems(resumeData.personalInfo.summary).map(item => 
-                    new Paragraph({
-                      text: item,
-                      bullet: { level: 0 },
-                      indent: { left: 720 },
-                      spacing: { after: 100 },
-                    })
-                  )
-                : [new Paragraph({
-                    text: htmlToPlainText(resumeData.personalInfo.summary),
-                    spacing: { after: 400 },
-                  })]
-              ),
-            ] : []),
-            
-            // Sections
-            ...resumeData.sections.flatMap(section => {
-              const sectionElements = [
-                new Paragraph({
-                  text: section.title,
-                  heading: HeadingLevel.HEADING_2,
-                  thematicBreak: true,
-                  spacing: {
-                    after: 200,
-                  },
-                }),
-              ];
-              
-              // Add items
-              section.items.forEach(item => {
-                // Title and date
-                sectionElements.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({
-                        text: item.title,
-                        bold: true,
-                      }),
-                      item.date ? new TextRun({
-                        text: "  " + item.date,
-                        bold: false,
-                      }) : new TextRun(""),
-                    ],
-                    spacing: {
-                      after: 100,
-                    },
-                  })
-                );
-                
-                // Subtitle
-                if (item.subtitle) {
-                  sectionElements.push(
-                    new Paragraph({
-                      text: item.subtitle,
-                      spacing: {
-                        after: 100,
-                      },
-                    })
-                  );
-                }
-                
-                // Description - handle bullet points
-                if (item.description) {
-                  const descriptionText = item.description;
-                  
-                  // Check if the description contains bullet points
-                  if (descriptionText.includes('<ul>') || descriptionText.includes('<li>')) {
-                    // Extract list items
-                    const listItems = extractListItems(descriptionText);
-                    
-                    listItems.forEach(itemText => {
-                      sectionElements.push(
-                        new Paragraph({
-                          text: itemText,
-                          bullet: {
-                            level: 0,
-                          },
-                          indent: {
-                            left: 720, // 0.5 inches in twips
-                          },
-                          spacing: {
-                            after: 100,
-                          },
-                        })
-                      );
-                    });
-                  } else {
-                    // Regular text
-                    sectionElements.push(
-                      new Paragraph({
-                        text: htmlToPlainText(descriptionText),
-                        spacing: {
-                          after: 100,
-                        },
-                      })
-                    );
-                  }
-                }
-                
-                // Add spacing after each item
-                sectionElements.push(
-                  new Paragraph({
-                    text: "",
-                    spacing: {
-                      after: 200,
-                    },
-                  })
-                );
-              });
-              
-              return sectionElements;
-            }),
-          ],
-        }],
-      });
+      // Create a download link
+      const url = URL.createObjectURL(docxBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.docx`;
+      document.body.appendChild(link);
+      link.click();
       
-      // Generate and download the DOCX
-      const blob = await Packer.toBlob(doc);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      // Clean up
+      document.body.removeChild(link);
       URL.revokeObjectURL(url);
       
-      // Show success toast
       toast({
-        title: "Resume exported",
-        description: "Your resume has been downloaded as a DOCX file",
+        title: 'DOCX Export Successful',
+        description: 'Your resume has been exported as a DOCX file.',
       });
     } catch (error) {
-      console.error("DOCX export error:", error);
+      console.error('DOCX export error:', error);
       toast({
-        title: "Export failed",
-        description: "There was an error exporting your resume to DOCX",
-        variant: "destructive",
+        title: 'DOCX Export Failed',
+        description: 'There was an error exporting your resume. Please try again.',
+        variant: 'destructive',
       });
+    } finally {
+      setIsExporting(false);
     }
-  }
+  };
 
   const handleExportGoogleDocs = async () => {
     try {
@@ -487,47 +305,7 @@ export default function BuilderPage() {
       // Use the same document creation logic as DOCX export
       const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
       
-      // Helper function to convert HTML to plain text (same as in handleExportDOCX)
-      const htmlToPlainText = (html: string) => {
-        // Replace common HTML entities
-        let text = html
-          .replace(/&nbsp;/g, ' ')
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/&#39;/g, "'");
-        
-        // Remove HTML tags but preserve line breaks
-        text = text
-          .replace(/<br\s*\/?>/gi, '\n')
-          .replace(/<\/p>/gi, '\n')
-          .replace(/<\/div>/gi, '\n')
-          .replace(/<\/h[1-6]>/gi, '\n')
-          .replace(/<[^>]+>/g, '');
-        
-        return text.trim();
-      };
-      
-      // Helper function to extract list items from HTML (same as in handleExportDOCX)
-      const extractListItems = (html: string) => {
-        const items: string[] = [];
-        // Replace the 's' flag with a workaround that makes '.' match newlines
-        // by replacing all newlines with a special character and then back
-        const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
-        const regex = /<li[^>]*>(.*?)<\/li>/g;
-        let match;
-        
-        while ((match = regex.exec(processedHtml)) !== null) {
-          const itemText = htmlToPlainText(match[1].replace(/§§NEWLINE§§/g, '\n'));
-          if (itemText.trim()) {
-            items.push(itemText);
-          }
-        }
-        
-        return items;
-      };
-      
+      // Use the utility functions instead of redefining them
       // Create document
       const doc = new Document({
         sections: [{
@@ -751,76 +529,96 @@ export default function BuilderPage() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="w-[180px]">
-            {/* Logo removed */}
-          </div>
-          <div className="flex items-center gap-4">
-            <Select value={template} onValueChange={setTemplate}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Select template" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="professional">Professional</SelectItem>
-                <SelectItem value="minimalist">Minimalist</SelectItem>
-                <SelectItem value="modern">Modern</SelectItem>
-              </SelectContent>
-            </Select>
+      <header className="sticky top-0 z-10 border-b bg-background">
+        <div className="container flex h-14 items-center px-4">
+          <Link href="/" className="flex items-center gap-2 font-semibold">
+            <FileText className="h-5 w-5" />
+            <span>Resume Builder</span>
+          </Link>
+          
+          <div className="ml-auto flex items-center gap-2">
+            <ATSChecker resumeData={resumeData} />
+            <GrammarChecker resumeData={resumeData} />
             
-            <Select value={colorTheme} onValueChange={setColorTheme}>
-              <SelectTrigger className="w-[180px]">
-                <div className="flex items-center gap-2">
-                  <Palette className="h-4 w-4" />
-                  <SelectValue placeholder="Select color theme" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                {colorThemes.map((theme) => (
-                  <SelectItem key={theme.value} value={theme.value}>
-                    <div className="flex items-center gap-2">
-                      <div 
-                        className="h-3 w-3 rounded-full" 
-                        style={{ backgroundColor: theme.color }}
-                      />
-                      {theme.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            
-            <div className="flex gap-2">
-              <ATSChecker resumeData={resumeData} />
-              <GrammarChecker resumeData={resumeData} />
+            <div className="hidden items-center gap-2 md:flex">
+              <Select
+                value={template}
+                onValueChange={(value) => setTemplate(value)}
+              >
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue placeholder="Select template" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="professional">Professional</SelectItem>
+                  <SelectItem value="minimalist">Minimalist</SelectItem>
+                  <SelectItem value="modern">Modern</SelectItem>
+                </SelectContent>
+              </Select>
+              
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button className="gap-2">
-                    <Download className="h-4 w-4" /> 
-                    Export
+                  <Button variant="outline" className="gap-1">
+                    <div
+                      className="h-4 w-4 rounded-full"
+                      style={{
+                        backgroundColor: colorThemes.find(
+                          (theme) => theme.value === colorTheme
+                        )?.color,
+                      }}
+                    />
+                    <span className="capitalize">{colorTheme}</span>
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={handleExportPDF} className="cursor-pointer">
-                    <Download className="mr-2 h-4 w-4" /> PDF
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportDOCX} className="cursor-pointer">
-                    <FileText className="mr-2 h-4 w-4" /> DOCX
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={handleExportGoogleDocs} className="cursor-pointer">
-                    <ExternalLink className="mr-2 h-4 w-4" /> Google Docs
-                  </DropdownMenuItem>
+                  {colorThemes.map((theme) => (
+                    <DropdownMenuItem
+                      key={theme.value}
+                      className="flex items-center gap-2"
+                      onClick={() => setColorTheme(theme.value as ColorTheme)}
+                    >
+                      <div
+                        className="h-4 w-4 rounded-full"
+                        style={{ backgroundColor: theme.color }}
+                      />
+                      <span>{theme.name}</span>
+                    </DropdownMenuItem>
+                  ))}
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="h-4 w-4 mr-2" />
+                  Export
+                  <ChevronDown className="h-4 w-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportDOCX}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Export as DOCX
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportGoogleDocs}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Open in Google Docs
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </header>
+      
       <main className="flex-1">
         {isDesktop ? (
-          <div className="grid h-[calc(100vh-4rem)] grid-cols-2">
-            <div className="border-r overflow-y-auto p-4">
+          <div className="container grid h-full grid-cols-1 gap-4 p-4 md:grid-cols-2">
+            <div className="overflow-y-auto">
               <DndContext
                 sensors={sensors}
                 collisionDetection={closestCenter}
@@ -842,34 +640,81 @@ export default function BuilderPage() {
             </div>
           </div>
         ) : (
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="h-[calc(100vh-4rem)]">
-            <div className="border-b px-4">
-              <TabsList className="w-full justify-start">
-                <TabsTrigger value="edit">Edit</TabsTrigger>
-                <TabsTrigger value="preview">Preview</TabsTrigger>
-              </TabsList>
-            </div>
-            <TabsContent value="edit" className="h-full overflow-y-auto p-4 m-0">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleSectionOrderChange}
-                modifiers={[restrictToVerticalAxis]}
-              >
-                <SortableContext
-                  items={resumeData.sections.map((section) => section.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ResumeEditor data={resumeData} onChange={handleDataChange} />
-                </SortableContext>
-              </DndContext>
-            </TabsContent>
-            <TabsContent value="preview" className="h-full overflow-y-auto bg-gray-50 p-4 m-0">
-              <div ref={mobilePreviewRef}>
-                <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+          <div className="container h-full p-0">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
+              <div className="flex items-center justify-between border-b px-4">
+                <TabsList>
+                  <TabsTrigger value="edit">Edit</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                </TabsList>
+                <div className="flex items-center gap-2 py-2">
+                  <Select
+                    value={template}
+                    onValueChange={(value) => setTemplate(value)}
+                  >
+                    <SelectTrigger className="w-[130px]">
+                      <SelectValue placeholder="Template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="minimalist">Minimalist</SelectItem>
+                      <SelectItem value="modern">Modern</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon">
+                        <div
+                          className="h-4 w-4 rounded-full"
+                          style={{
+                            backgroundColor: colorThemes.find(
+                              (theme) => theme.value === colorTheme
+                            )?.color,
+                          }}
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {colorThemes.map((theme) => (
+                        <DropdownMenuItem
+                          key={theme.value}
+                          className="flex items-center gap-2"
+                          onClick={() => setColorTheme(theme.value as ColorTheme)}
+                        >
+                          <div
+                            className="h-4 w-4 rounded-full"
+                            style={{ backgroundColor: theme.color }}
+                          />
+                          <span>{theme.name}</span>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
               </div>
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="edit" className="h-full overflow-y-auto p-4 m-0">
+                <DndContext
+                  sensors={sensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleSectionOrderChange}
+                  modifiers={[restrictToVerticalAxis]}
+                >
+                  <SortableContext
+                    items={resumeData.sections.map((section) => section.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <ResumeEditor data={resumeData} onChange={handleDataChange} />
+                  </SortableContext>
+                </DndContext>
+              </TabsContent>
+              <TabsContent value="preview" className="h-full overflow-y-auto bg-gray-50 p-4 m-0">
+                <div ref={mobilePreviewRef}>
+                  <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+                </div>
+              </TabsContent>
+            </Tabs>
+          </div>
         )}
       </main>
     </div>

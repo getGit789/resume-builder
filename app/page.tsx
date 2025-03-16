@@ -4,16 +4,7 @@ import { ArrowRight } from "lucide-react"
 
 export default function HomePage() {
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div style={{ display: 'table', width: '100%', height: '64px' }}>
-          <div style={{ display: 'table-cell', verticalAlign: 'middle', textAlign: 'center' }}>
-            <Link href="/" className="font-bold text-2xl">
-              ResumeForge
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       <main className="flex-1">
         <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
           <div className="container px-4 md:px-6">
@@ -162,17 +153,25 @@ export default function HomePage() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-bold mb-2">One-click Export</h3>
-                <p className="text-muted-foreground">Export your resume as a PDF with a single click.</p>
+                <p className="text-muted-foreground">Export your resume as a PDF or DOCX with a single click.</p>
               </div>
             </div>
           </div>
         </section>
       </main>
       <footer className="border-t py-6">
-        <div style={{ width: '100%', textAlign: 'center' }}>
-          <p className="text-sm leading-loose text-muted-foreground">
+        <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
+          <p className="text-sm text-muted-foreground">
             © 2025 ResumeForge. All rights reserved.
           </p>
+          <div className="flex gap-4">
+            <Link href="/dashboard" className="text-sm text-muted-foreground hover:underline">
+              Dashboard
+            </Link>
+            <Link href="/builder" className="text-sm text-muted-foreground hover:underline">
+              Create Resume
+            </Link>
+          </div>
         </div>
       </footer>
     </div>

@@ -1,0 +1,453 @@
+"use client"
+
+import { useState, useEffect, useRef } from "react"
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable"
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Download, Palette, FileText, ExternalLink, ChevronDown } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import ResumeEditor from "@/components/resume-editor"
+import ResumePreview from "@/components/resume-preview"
+import { defaultResumeData } from "@/lib/default-data"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { DragEndEvent } from "@dnd-kit/core"
+import Link from "next/link"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ATSChecker } from "@/components/ats-checker"
+import { GrammarChecker } from "@/components/grammar-checker"
+import { FontSelector } from "@/components/font-selector"
+import { useSearchParams } from "next/navigation"
+import { Card } from "@/components/ui/card"
+import { TemplateSelector } from "@/components/template-selector"
+import { ColorSelector } from "@/components/color-selector"
+
+// Define valid color theme values
+type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
+
+// Define the Link interface
+interface Link {
+  id: string;
+  title: string;
+  url: string;
+}
+
+// Define the PersonalInfo interface
+interface PersonalInfo {
+  firstName: string;
+  lastName: string;
+  title: string;
+  email: string;
+  phone: string;
+  location: string;
+  summary: string;
+  links: Link[];
+}
+
+// Define the ResumeItem interface
+interface ResumeItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  date?: string;
+  description?: string;
+}
+
+// Define the ResumeSection interface
+interface ResumeSection {
+  id: string;
+  type: string;
+  title: string;
+  items: ResumeItem[];
+}
+
+// Define the ResumeSettings interface
+interface ResumeSettings {
+  template: string;
+  colorTheme: ColorTheme;
+  font: string;
+}
+
+// Define the ResumeData interface
+interface ResumeData {
+  personalInfo: PersonalInfo;
+  sections: ResumeSection[];
+  settings: ResumeSettings;
+}
+
+export default function BuilderPage() {
+  const [resumeData, setResumeData] = useState<ResumeData>({
+    personalInfo: {
+      firstName: "John",
+      lastName: "Doe",
+      title: "Software Engineer",
+      email: "john.doe@example.com",
+      phone: "(555) 123-4567",
+      location: "San Francisco, CA",
+      links: [
+        { id: "1", url: "https://linkedin.com/in/johndoe", title: "LinkedIn" },
+        { id: "2", url: "https://github.com/johndoe", title: "GitHub" },
+      ],
+      summary: "<p>Experienced software engineer with a passion for building scalable web applications and solving complex problems. Proficient in JavaScript, TypeScript, React, and Node.js.</p>",
+    },
+    sections: [
+      {
+        id: "1",
+        type: "work",
+        title: "Work Experience",
+        items: [
+          {
+            id: "1",
+            title: "Senior Software Engineer",
+            subtitle: "Tech Company Inc.",
+            date: "2020 - Present",
+            description: "<p>Led the development of a high-traffic web application using React and Node.js. Improved performance by 40% through code optimization and implementing efficient data structures.</p><ul><li>Architected and implemented RESTful APIs</li><li>Mentored junior developers</li><li>Implemented CI/CD pipelines</li></ul>",
+          },
+          {
+            id: "2",
+            title: "Software Engineer",
+            subtitle: "Startup XYZ",
+            date: "2018 - 2020",
+            description: "<p>Developed and maintained front-end applications using React and TypeScript. Collaborated with designers to implement responsive UI components.</p>",
+          },
+        ],
+      },
+      {
+        id: "2",
+        type: "education",
+        title: "Education",
+        items: [
+          {
+            id: "1",
+            title: "Master of Computer Science",
+            subtitle: "University of Technology",
+            date: "2016 - 2018",
+            description: "<p>Focused on software engineering and distributed systems. Graduated with honors.</p>",
+          },
+          {
+            id: "2",
+            title: "Bachelor of Science in Computer Science",
+            subtitle: "State University",
+            date: "2012 - 2016",
+            description: "<p>Dean's List, GPA 3.8/4.0</p>",
+          },
+        ],
+      },
+      {
+        id: "3",
+        type: "skills",
+        title: "Skills",
+        items: [
+          {
+            id: "1",
+            title: "Programming Languages",
+            subtitle: "JavaScript, TypeScript, Python, Java",
+            description: "",
+            date: ""
+          },
+          {
+            id: "2",
+            title: "Frameworks & Libraries",
+            subtitle: "React, Node.js, Express, Next.js",
+            description: "",
+            date: ""
+          },
+          {
+            id: "3",
+            title: "Tools & Technologies",
+            subtitle: "Git, Docker, AWS, CI/CD, RESTful APIs",
+            description: "",
+            date: ""
+          },
+        ],
+      },
+    ],
+    settings: {
+      template: "professional",
+      colorTheme: "blue",
+      font: "'Inter', sans-serif"
+    }
+  });
+  
+  const searchParams = useSearchParams();
+  const templateParam = searchParams.get("template");
+  
+  const { toast } = useToast();
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const previewRef = useRef<HTMLDivElement>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  );
+
+  // Load saved data on initial render
+  useEffect(() => {
+    const savedData = localStorage.getItem("resumeData");
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        // Ensure settings object exists with default values if missing
+        if (!parsedData.settings) {
+          parsedData.settings = {
+            template: "professional",
+            colorTheme: "blue",
+            font: "'Inter', sans-serif"
+          };
+        } else {
+          // Ensure all settings properties exist
+          if (!parsedData.settings.template) parsedData.settings.template = "professional";
+          if (!parsedData.settings.colorTheme) parsedData.settings.colorTheme = "blue";
+          if (!parsedData.settings.font) parsedData.settings.font = "'Inter', sans-serif";
+        }
+        setResumeData(parsedData);
+      } catch (error) {
+        console.error("Error parsing saved resume data:", error);
+      }
+    }
+    
+    // If template is specified in URL, use it
+    if (templateParam) {
+      setResumeData(prevData => ({
+        ...prevData,
+        settings: {
+          ...prevData.settings,
+          template: templateParam
+        }
+      }));
+    }
+  }, [templateParam]);
+
+  // Save changes to localStorage
+  useEffect(() => {
+    localStorage.setItem("resumeData", JSON.stringify(resumeData));
+  }, [resumeData]);
+
+  const handleDataChange = (newData: ResumeData) => {
+    // If the data doesn't have settings, add them
+    if (!newData.settings) {
+      newData.settings = resumeData.settings;
+    }
+    setResumeData(newData);
+  };
+
+  const handleSectionOrderChange = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over) return;
+
+    if (active.id !== over.id) {
+      setResumeData((data) => {
+        const oldIndex = data.sections.findIndex((section) => section.id === active.id);
+        const newIndex = data.sections.findIndex((section) => section.id === over.id);
+        
+        return {
+          ...data,
+          sections: arrayMove(data.sections, oldIndex, newIndex),
+        };
+      });
+    }
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      const previewElement = previewRef.current;
+      
+      if (!previewElement) {
+        toast({
+          title: "Export failed",
+          description: "Could not find the resume preview element",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      // Show loading toast
+      toast({
+        title: "Exporting resume",
+        description: "Please wait while we generate your PDF...",
+      });
+      
+      // Dynamically import html2pdf to avoid SSR issues
+      const html2pdf = (await import('html2pdf.js')).default;
+      
+      // Set up options for html2pdf
+      const options = {
+        margin: 10,
+        filename: `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait' as 'portrait' | 'landscape'
+        }
+      };
+      
+      // Generate and download the PDF
+      await html2pdf().from(previewElement).set(options).save();
+      
+      // Show success toast
+      toast({
+        title: "Resume exported",
+        description: "Your resume has been downloaded as a PDF",
+      });
+    } catch (error) {
+      console.error("PDF export error:", error);
+      toast({
+        title: "Export failed",
+        description: "There was an error exporting your resume",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportDOCX = async () => {
+    // DOCX export implementation (unchanged)
+    toast({
+      title: "DOCX Export",
+      description: "This feature is coming soon!",
+      variant: "destructive",
+    });
+  };
+
+  const handleExportGoogleDocs = async () => {
+    // Google Docs export implementation (unchanged)
+    toast({
+      title: "Google Docs Export",
+      description: "This feature is coming soon!",
+      variant: "destructive",
+    });
+  };
+
+  const handleTemplateChange = (newTemplate: string) => {
+    setResumeData(prevData => ({
+      ...prevData,
+      settings: {
+        ...prevData.settings,
+        template: newTemplate
+      }
+    }));
+  };
+
+  const handleColorThemeChange = (newColorTheme: ColorTheme) => {
+    setResumeData(prevData => ({
+      ...prevData,
+      settings: {
+        ...prevData.settings,
+        colorTheme: newColorTheme
+      }
+    }));
+  };
+
+  const handleFontChange = (newFont: string) => {
+    setResumeData(prevData => ({
+      ...prevData,
+      settings: {
+        ...prevData.settings,
+        font: newFont
+      }
+    }));
+  };
+
+  // Create a wrapper component to handle the type mismatch between different ResumeData interfaces
+  interface ResumeEditorWrapperProps {
+    data: any;
+    onChange: (data: any) => void;
+  }
+
+  function ResumeEditorWrapper({ data, onChange }: ResumeEditorWrapperProps) {
+    return <ResumeEditor data={data} onChange={onChange} />;
+  }
+
+  return (
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Resume Builder</h1>
+        
+        <div className="flex items-center gap-4">
+          <TemplateSelector 
+            value={resumeData.settings.template} 
+            onChange={handleTemplateChange} 
+          />
+          
+          <ColorSelector 
+            value={resumeData.settings.colorTheme} 
+            onChange={handleColorThemeChange} 
+          />
+          
+          <FontSelector 
+            value={resumeData.settings.font} 
+            onChange={handleFontChange} 
+          />
+          
+          <div className="flex items-center gap-2">
+            <ATSChecker resumeData={resumeData as any} />
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                  <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  Export as PDF
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportDOCX}>
+                  Export as DOCX
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportGoogleDocs}>
+                  Export to Google Docs
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-4 overflow-y-auto max-h-[calc(100vh-10rem)]">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleSectionOrderChange}
+            modifiers={[restrictToVerticalAxis]}
+          >
+            <SortableContext
+              items={resumeData.sections?.map((section) => section.id) || []}
+              strategy={verticalListSortingStrategy}
+            >
+              <ResumeEditorWrapper 
+                data={resumeData} 
+                onChange={handleDataChange} 
+              />
+            </SortableContext>
+          </DndContext>
+        </Card>
+        
+        <Card className="p-0 overflow-hidden print:hidden">
+          <div ref={previewRef} className="bg-white p-8 min-h-[1056px] max-h-[calc(100vh-10rem)] overflow-y-auto shadow-sm">
+            <ResumePreview 
+              data={resumeData} 
+              template={resumeData.settings.template} 
+              colorTheme={resumeData.settings.colorTheme}
+              font={resumeData.settings.font}
+            />
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
