@@ -19,6 +19,7 @@ A modern resume builder application built with Next.js, React, TypeScript, and T
 - **Database**: PostgreSQL (with mock implementation for development)
 - **Queue**: Bull (with mock implementation for development)
 - **Testing**: Playwright for end-to-end testing
+- **CI/CD**: GitHub Actions for continuous integration and deployment
 
 ## Getting Started
 
@@ -26,6 +27,7 @@ A modern resume builder application built with Next.js, React, TypeScript, and T
 
 - Node.js 18 or later
 - npm or yarn
+- Docker and Docker Compose (optional, for local database)
 
 ### Installation
 
@@ -40,17 +42,27 @@ A modern resume builder application built with Next.js, React, TypeScript, and T
    npm install
    ```
 
-3. Generate Prisma client:
+3. Set up environment variables:
+   ```bash
+   cp .env.example .env
+   ```
+
+4. (Optional) Start the database and Redis using Docker:
+   ```bash
+   docker-compose up -d
+   ```
+
+5. Generate Prisma client:
    ```bash
    npx prisma generate
    ```
 
-4. Start the development server:
+6. Start the development server:
    ```bash
    npm run dev
    ```
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser.
+7. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ## Testing
 
@@ -96,9 +108,32 @@ npm test -- tests/e2e/home.spec.ts
 npm test -- --grep "@smoke"
 ```
 
-### CI/CD Integration
+## Deployment
 
-The project includes a GitHub Actions workflow for continuous integration. The workflow runs all tests on each push to the main branch and on pull requests.
+The application is set up with a complete CI/CD pipeline using GitHub Actions for automated testing and deployment.
+
+### CI/CD Pipeline
+
+- **Testing**: All code changes are automatically tested using Playwright
+- **Staging**: Changes pushed to the `Testing_pre_Production` branch are automatically deployed to the staging environment
+- **Production**: Changes merged to the `main` branch are automatically deployed to production
+
+### Deployment Environments
+
+- **Staging**: For testing new features before they go to production
+- **Production**: The live environment for end users
+
+For detailed deployment instructions, see the [DEPLOYMENT.md](DEPLOYMENT.md) file.
+
+## Performance Optimizations
+
+The application includes several performance optimizations:
+
+- **Code Splitting**: Using Next.js dynamic imports and React.lazy for component-level code splitting
+- **Memoization**: Custom hooks for memoizing expensive computations
+- **State Management**: Efficient state management with Zustand
+- **Server-Side Rendering**: Leveraging Next.js SSR for improved initial load times
+- **Image Optimization**: Using Next.js Image component for optimized image loading
 
 ## Project Structure
 
@@ -115,9 +150,11 @@ The project includes a GitHub Actions workflow for continuous integration. The w
 ├── public/               # Static assets
 ├── store/                # Zustand stores
 ├── styles/               # Global styles
-└── tests/                # Playwright tests
-    ├── e2e/              # End-to-end test files
-    └── helpers.ts        # Test helpers and fixtures
+├── tests/                # Playwright tests
+│   ├── e2e/              # End-to-end test files
+│   └── helpers.ts        # Test helpers and fixtures
+└── .github/              # GitHub Actions workflows
+    └── workflows/        # CI/CD workflow definitions
 ```
 
 ## Contributing
