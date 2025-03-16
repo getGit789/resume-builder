@@ -84,8 +84,16 @@ class MockPrismaClient {
 
   user = {
     findMany: async () => this.mockData.users,
-    findUnique: async ({ where }: any) => this.mockData.users.find(u => u.id === where.id),
-    create: async ({ data }: any) => {
+    findUnique: async ({ where }: any) => {
+      if (where.id) {
+        return this.mockData.users.find(u => u.id === where.id);
+      }
+      if (where.email) {
+        return this.mockData.users.find(u => u.email === where.email);
+      }
+      return null;
+    },
+    create: async ({ data, select }: any) => {
       const newUser = {
         id: `mock-${Date.now()}`,
         createdAt: new Date(),
@@ -93,7 +101,30 @@ class MockPrismaClient {
         ...data
       };
       this.mockData.users.push(newUser);
+      
+      // Handle select if provided
+      if (select) {
+        const selectedFields: any = {};
+        Object.keys(select).forEach(key => {
+          if (select[key] && newUser[key] !== undefined) {
+            selectedFields[key] = newUser[key];
+          }
+        });
+        return selectedFields;
+      }
+      
       return newUser;
+    },
+    update: async ({ where, data }: any) => {
+      const index = this.mockData.users.findIndex(u => u.id === where.id);
+      if (index === -1) throw new Error('User not found');
+      
+      this.mockData.users[index] = {
+        ...this.mockData.users[index],
+        ...data,
+        updatedAt: new Date()
+      };
+      return this.mockData.users[index];
     }
   };
 }

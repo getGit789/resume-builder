@@ -1,8 +1,18 @@
+"use client"
+
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
-import { ArrowRight } from "lucide-react"
+import { ArrowRight, UserPlus, LogIn } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export default function HomePage() {
+  const router = useRouter()
+  
+  const handleGuestAccess = () => {
+    localStorage.setItem("guestMode", "true")
+    router.push("/builder")
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-4rem)] flex-col">
       <main className="flex-1">
@@ -20,11 +30,28 @@ export default function HomePage() {
                   </p>
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
-                  <Link href="/builder">
+                  <Link href="/auth">
                     <Button size="lg" className="gap-1.5">
-                      Create Resume <ArrowRight className="h-4 w-4" />
+                      Get Started <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
+                  <Link href="/auth">
+                    <Button size="lg" variant="outline" className="gap-1.5">
+                      <LogIn className="h-4 w-4" /> Sign In
+                    </Button>
+                  </Link>
+                </div>
+                <div className="mt-2">
+                  <Button 
+                    variant="link" 
+                    className="gap-1.5 text-muted-foreground"
+                    onClick={handleGuestAccess}
+                  >
+                    <UserPlus className="h-4 w-4" /> Continue as Guest
+                  </Button>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No account required. Your data won't be saved between sessions.
+                  </p>
                 </div>
               </div>
               <div className="flex items-center justify-center">
@@ -158,11 +185,34 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+        <section className="w-full py-12 md:py-24 bg-background">
+          <div className="container px-4 md:px-6 mx-auto text-center">
+            <h2 className="text-3xl font-bold tracking-tighter sm:text-4xl mb-4">Ready to build your resume?</h2>
+            <p className="max-w-[600px] mx-auto text-muted-foreground md:text-xl mb-8">
+              Create a professional resume in minutes with our easy-to-use builder.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link href="/auth">
+                <Button size="lg" className="gap-1.5 w-full sm:w-auto">
+                  Create an Account <ArrowRight className="h-4 w-4" />
+                </Button>
+              </Link>
+              <Button 
+                size="lg" 
+                variant="outline" 
+                className="gap-1.5 w-full sm:w-auto"
+                onClick={handleGuestAccess}
+              >
+                <UserPlus className="h-4 w-4" /> Try as Guest
+              </Button>
+            </div>
+          </div>
+        </section>
       </main>
       <footer className="border-t py-6">
         <div className="container flex flex-col items-center justify-between gap-4 md:h-16 md:flex-row">
           <p className="text-sm text-muted-foreground">
-            © 2025 ResumeForge. All rights reserved.
+            © 2025 Resume Builder. All rights reserved.
           </p>
           <div className="flex gap-4">
             <Link href="/dashboard" className="text-sm text-muted-foreground hover:underline">
