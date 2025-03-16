@@ -87,7 +87,6 @@ export function FontSelector({ value, onValueChange }: FontSelectorProps) {
               style={{ fontFamily: FONT_FAMILY_MAP[font] }}
             >
               <span>{font}</span>
-              {displayValue === font && <Check className="h-4 w-4 ml-2" />}
             </SelectItem>
           ))}
         </SelectContent>

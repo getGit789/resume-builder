@@ -533,8 +533,8 @@ export function SimpleRichTextEditor({
             ref={editorRef}
             contentEditable
             className={cn(
-              "min-h-[100px] p-3 rounded-md border focus:outline-none focus:ring-2 focus:ring-ring",
-              isEditing && "ring-2 ring-ring",
+              "min-h-[100px] p-3 rounded-md border focus:outline-none",
+              isEditing && "ring-0",
               styles.richTextEditor,
               className
             )}

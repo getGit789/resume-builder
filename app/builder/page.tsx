@@ -1,31 +1,30 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
-import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable"
-import { restrictToVerticalAxis } from "@dnd-kit/modifiers"
+import Link from "next/link"
+import { useMediaQuery } from "@/hooks/use-media-query"
+import { DndContext, DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core"
+import { SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Palette, FileText, ExternalLink, ChevronDown } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { useToast } from "@/components/ui/use-toast"
+import { ChevronDown, Download, ExternalLink, FileText } from "lucide-react"
 import ResumeEditor from "@/components/resume-editor"
 import ResumePreview from "@/components/resume-preview"
-import { defaultResumeData } from "@/lib/default-data"
-import { useMediaQuery } from "@/hooks/use-media-query"
-import { DragEndEvent } from "@dnd-kit/core"
-import Link from "next/link"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ATSChecker } from "@/components/ats-checker"
 import { GrammarChecker } from "@/components/grammar-checker"
 import { generatePDF, generateDOCX } from '@/lib/pdf-utils'
+import { useAutoSave } from '@/hooks/use-auto-save'
+import { AutoSaveStatus } from '@/components/auto-save-status'
+import { ResumeNameInput } from '@/components/resume-name-input'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { useSession } from 'next-auth/react'
+import { ColorTheme, themeColors } from "@/types"
+import { FontSelector } from "@/components/font-selector"
 
-// Define the ResumeData interface
+// Define local types that match what the components expect
 interface Link {
   id: string;
   title: string;
@@ -63,75 +62,176 @@ interface ResumeData {
 }
 
 // Define color themes
-// Define valid color theme values
-type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
-
 const colorThemes = [
-  { name: "Default", value: "default" as ColorTheme, color: "#000000" },
-  { name: "Blue", value: "blue" as ColorTheme, color: "#3B82F6" },
-  { name: "Green", value: "green" as ColorTheme, color: "#10B981" },
-  { name: "Purple", value: "purple" as ColorTheme, color: "#8B5CF6" },
-  { name: "Red", value: "red" as ColorTheme, color: "#EF4444" },
-  { name: "Orange", value: "orange" as ColorTheme, color: "#F97316" },
-  { name: "Teal", value: "teal" as ColorTheme, color: "#14B8A6" },
-];
+  { name: "Default", value: "default", color: themeColors.default },
+  { name: "Blue", value: "blue", color: themeColors.blue },
+  { name: "Green", value: "green", color: themeColors.green },
+  { name: "Purple", value: "purple", color: themeColors.purple },
+  { name: "Red", value: "red", color: themeColors.red },
+  { name: "Orange", value: "orange", color: themeColors.orange },
+  { name: "Teal", value: "teal", color: themeColors.teal },
+]
 
-// Utility functions for export
+// Default resume data
+const defaultResumeData: ResumeData = {
+  personalInfo: {
+    firstName: "John",
+    lastName: "Doe",
+    title: "Software Engineer",
+    email: "john.doe@example.com",
+    phone: "(123) 456-7890",
+    location: "San Francisco, CA",
+    summary: "Experienced software engineer with a passion for building user-friendly applications.",
+    links: [
+      {
+        id: "link-1",
+        title: "LinkedIn",
+        url: "https://linkedin.com/in/johndoe",
+      },
+      {
+        id: "link-2",
+        title: "GitHub",
+        url: "https://github.com/johndoe",
+      },
+    ],
+  },
+  sections: [
+    {
+      id: "section-1",
+      title: "Work Experience",
+      items: [
+        {
+          id: "item-1",
+          title: "Senior Software Engineer",
+          subtitle: "Tech Company Inc.",
+          date: "2020 - Present",
+          description: "<p>Led the development of a new product feature that increased user engagement by 25%.</p><ul><li>Collaborated with cross-functional teams to define requirements</li><li>Implemented responsive UI components using React</li><li>Optimized database queries to improve performance</li></ul>",
+        },
+        {
+          id: "item-2",
+          title: "Software Engineer",
+          subtitle: "Startup XYZ",
+          date: "2018 - 2020",
+          description: "<p>Developed and maintained web applications using modern JavaScript frameworks.</p><ul><li>Built RESTful APIs using Node.js and Express</li><li>Implemented authentication and authorization features</li><li>Wrote unit and integration tests</li></ul>",
+        },
+      ],
+    },
+    {
+      id: "section-2",
+      title: "Education",
+      items: [
+        {
+          id: "item-3",
+          title: "Master of Computer Science",
+          subtitle: "University of Technology",
+          date: "2016 - 2018",
+          description: "<p>Focused on software engineering and artificial intelligence.</p>",
+        },
+        {
+          id: "item-4",
+          title: "Bachelor of Science in Computer Science",
+          subtitle: "State University",
+          date: "2012 - 2016",
+          description: "<p>Graduated with honors. Relevant coursework: Data Structures, Algorithms, Database Systems.</p>",
+        },
+      ],
+    },
+    {
+      id: "section-3",
+      title: "Skills",
+      items: [
+        {
+          id: "item-5",
+          title: "Programming Languages",
+          subtitle: "",
+          date: "",
+          description: "<p>JavaScript, TypeScript, Python, Java, SQL</p>",
+        },
+        {
+          id: "item-6",
+          title: "Frameworks & Libraries",
+          subtitle: "",
+          date: "",
+          description: "<p>React, Node.js, Express, Next.js, Django</p>",
+        },
+        {
+          id: "item-7",
+          title: "Tools & Technologies",
+          subtitle: "",
+          date: "",
+          description: "<p>Git, Docker, AWS, CI/CD, Agile methodologies</p>",
+        },
+      ],
+    },
+  ],
+}
+
+// Helper function to convert HTML to plain text
 const htmlToPlainText = (html: string) => {
-  // Replace common HTML entities
-  let text = html
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+  if (!html) return ""
   
-  // Remove HTML tags but preserve line breaks
-  text = text
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/h[1-6]>/gi, '\n')
-    .replace(/<[^>]+>/g, '');
+  // Create a temporary element
+  const tempElement = document.createElement("div")
+  tempElement.innerHTML = html
   
-  return text.trim();
-};
+  // Get the text content
+  let text = tempElement.textContent || tempElement.innerText || ""
+  
+  // Clean up the text
+  text = text.replace(/\s+/g, " ").trim()
+  
+  return text
+}
 
+// Helper function to extract list items from HTML
 const extractListItems = (html: string) => {
-  const items: string[] = [];
-  // Replace newlines with a special character and then back
-  const processedHtml = html.replace(/\n/g, '§§NEWLINE§§');
+  if (!html) return []
   
-  // Extract list items
-  const listItemRegex = /<li[^>]*>(.*?)<\/li>/gi;
-  let match;
+  // Create a temporary element
+  const tempElement = document.createElement("div")
+  tempElement.innerHTML = html
   
-  while ((match = listItemRegex.exec(processedHtml)) !== null) {
-    // Clean up the list item text
-    let itemText = match[1]
-      .replace(/<[^>]+>/g, '') // Remove any nested HTML tags
-      .replace(/§§NEWLINE§§/g, '\n') // Restore newlines
-      .trim();
-    
-    if (itemText) {
-      items.push(itemText);
-    }
-  }
+  // Get all list items
+  const listItems = tempElement.querySelectorAll("li")
   
-  return items;
-};
+  // Convert to array of strings
+  return Array.from(listItems).map((item) => item.textContent || item.innerText || "")
+}
+
+// Helper function to ensure all resume items have required fields
+const ensureValidResumeData = (data: any): ResumeData => {
+  // Deep clone the data to avoid modifying the original
+  const validData = JSON.parse(JSON.stringify(data))
+  
+  // Ensure all items have required fields
+  validData.sections.forEach((section: any) => {
+    section.items.forEach((item: any) => {
+      if (item.date === undefined) item.date = ""
+      if (item.description === undefined) item.description = ""
+    })
+  })
+  
+  return validData as ResumeData
+}
 
 export default function BuilderPage() {
-  const [resumeData, setResumeData] = useState(defaultResumeData)
+  const [resumeData, setResumeData] = useState<ResumeData>(defaultResumeData)
   const [template, setTemplate] = useState("professional")
   const [colorTheme, setColorTheme] = useState<ColorTheme>("default")
   const [activeTab, setActiveTab] = useState("edit")
+  const [resumeName, setResumeName] = useState("My Resume")
+  const [font, setFont] = useState("'Inter', sans-serif")
   const { toast } = useToast()
   const isDesktop = useMediaQuery("(min-width: 1024px)")
   const desktopPreviewRef = useRef<HTMLDivElement>(null)
   const mobilePreviewRef = useRef<HTMLDivElement>(null)
   const [isExporting, setIsExporting] = useState(false)
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { data: session } = useSession()
+  
+  // Get resume ID from URL if editing an existing resume
+  const resumeId = searchParams?.get('id')
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -140,13 +240,62 @@ export default function BuilderPage() {
     }),
   )
 
+  // Use our auto-save hook
+  const { isSaving, lastSaved, error, saveNow } = useAutoSave(
+    resumeId,
+    resumeData as any, // Type assertion to handle the conversion
+    template,
+    colorTheme,
+    resumeName,
+    {
+      debounceTime: 1500,
+      onSaveSuccess: (result) => {
+        // If we created a new resume, update the URL to include the ID
+        if (!resumeId && result.id) {
+          router.replace(`/builder?id=${result.id}`)
+        }
+      }
+    }
+  )
+
   useEffect(() => {
+    // If we have a resume ID, fetch the resume data
+    const fetchResume = async () => {
+      if (resumeId) {
+        try {
+          const response = await fetch(`/api/resumes/${resumeId}`)
+          if (response.ok) {
+            const resume = await response.json()
+            setResumeData(ensureValidResumeData(resume.data))
+            setTemplate(resume.template)
+            setColorTheme(resume.colorTheme)
+            setResumeName(resume.name)
+          } else {
+            // If the resume doesn't exist, load from localStorage
+            loadFromLocalStorage()
+          }
+        } catch (error) {
+          console.error("Failed to fetch resume:", error)
+          // If there's an error, load from localStorage
+          loadFromLocalStorage()
+        }
+      } else {
+        // If there's no resume ID, load from localStorage
+        loadFromLocalStorage()
+      }
+    }
+
+    fetchResume()
+  }, [resumeId])
+
+  // Load saved data from localStorage
+  const loadFromLocalStorage = () => {
     // Load saved resume data from localStorage if available
     const savedData = localStorage.getItem("resumeData")
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData)
-        setResumeData(parsedData)
+        setResumeData(ensureValidResumeData(parsedData))
       } catch (error) {
         console.error("Failed to parse saved resume data", error)
       }
@@ -163,26 +312,24 @@ export default function BuilderPage() {
     if (savedColorTheme && isValidColorTheme(savedColorTheme)) {
       setColorTheme(savedColorTheme)
     }
-  }, [])
+
+    // Load saved resume name from localStorage if available
+    const savedName = localStorage.getItem("resumeName")
+    if (savedName) {
+      setResumeName(savedName)
+    }
+
+    // Load saved font from localStorage if available
+    const savedFont = localStorage.getItem("resumeFont")
+    if (savedFont) {
+      setFont(savedFont)
+    }
+  }
 
   // Helper function to validate color theme
   const isValidColorTheme = (theme: string): theme is ColorTheme => {
     return ["default", "blue", "green", "purple", "red", "orange", "teal"].includes(theme);
   }
-
-  // Save changes to localStorage
-  useEffect(() => {
-    localStorage.setItem("resumeData", JSON.stringify(resumeData))
-  }, [resumeData])
-
-  // Save template and color theme to localStorage
-  useEffect(() => {
-    localStorage.setItem("resumeTemplate", template)
-  }, [template])
-
-  useEffect(() => {
-    localStorage.setItem("resumeColorTheme", colorTheme)
-  }, [colorTheme])
 
   const handleDataChange = (newData: ResumeData) => {
     setResumeData(newData)
@@ -198,333 +345,130 @@ export default function BuilderPage() {
         const oldIndex = data.sections.findIndex((section) => section.id === active.id)
         const newIndex = data.sections.findIndex((section) => section.id === over.id)
         
+        const newSections = [...data.sections]
+        const [movedSection] = newSections.splice(oldIndex, 1)
+        newSections.splice(newIndex, 0, movedSection)
+        
         return {
           ...data,
-          sections: arrayMove(data.sections, oldIndex, newIndex),
+          sections: newSections,
         }
       })
     }
   }
 
   const handleExportPDF = async () => {
+    if (isExporting) return
+    
+    setIsExporting(true)
+    
     try {
-      setIsExporting(true);
+      // Get the preview element
+      const previewElement = isDesktop
+        ? desktopPreviewRef.current
+        : mobilePreviewRef.current
       
-      // Get the resume preview element
-      const resumeElement = document.getElementById('resume-preview');
-      if (!resumeElement) {
-        throw new Error('Resume preview element not found');
+      if (!previewElement) {
+        throw new Error("Preview element not found")
       }
       
-      // Wait for fonts to load
-      await document.fonts.ready;
+      // Generate a filename
+      const fullName = `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`.trim()
+      const filename = fullName
+        ? `${fullName} - Resume.pdf`
+        : "Resume.pdf"
       
-      // Generate PDF
-      const pdfBlob = await generatePDF(resumeElement, `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.pdf`);
-      
-      // Create a download link
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      
-      // Clean up
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-      
-      toast({
-        title: 'PDF Export Successful',
-        description: 'Your resume has been exported as a PDF.',
-      });
-    } catch (error) {
-      console.error('PDF export error:', error);
-      toast({
-        title: 'PDF Export Failed',
-        description: 'There was an error exporting your resume. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportDOCX = async () => {
-    try {
-      setIsExporting(true);
-      
-      // Get the resume preview element
-      const resumeElement = document.getElementById('resume-preview');
-      if (!resumeElement) {
-        throw new Error('Resume preview element not found');
-      }
-      
-      // Wait for fonts to load
-      await document.fonts.ready;
-      
-      // Generate DOCX
-      const docxBlob = await generateDOCX(resumeElement, `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.docx`);
+      // Generate the PDF
+      const pdf = await generatePDF(previewElement, filename)
       
       // Create a download link
-      const url = URL.createObjectURL(docxBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${resumeData.personalInfo.firstName}-${resumeData.personalInfo.lastName}-Resume.docx`;
-      document.body.appendChild(link);
-      link.click();
+      const url = URL.createObjectURL(pdf)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
       
       // Clean up
-      document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
       
       toast({
-        title: 'DOCX Export Successful',
-        description: 'Your resume has been exported as a DOCX file.',
-      });
+        title: "PDF exported",
+        description: "Your resume has been exported as a PDF.",
+      })
     } catch (error) {
-      console.error('DOCX export error:', error);
-      toast({
-        title: 'DOCX Export Failed',
-        description: 'There was an error exporting your resume. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsExporting(false);
-    }
-  };
-
-  const handleExportGoogleDocs = async () => {
-    try {
-      // Show loading toast
-      toast({
-        title: "Preparing for Google Docs",
-        description: "Creating document for Google Docs...",
-      });
+      console.error("Failed to export PDF:", error)
       
-      // Use the same document creation logic as DOCX export
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } = await import('docx');
-      
-      // Use the utility functions instead of redefining them
-      // Create document
-      const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [
-            // Name
-            new Paragraph({
-              text: `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`,
-              heading: HeadingLevel.HEADING_1,
-              alignment: AlignmentType.CENTER,
-              thematicBreak: false,
-            }),
-            
-            // Title
-            new Paragraph({
-              text: resumeData.personalInfo.title,
-              alignment: AlignmentType.CENTER,
-              spacing: {
-                after: 200,
-              },
-            }),
-            
-            // Contact Info
-            new Paragraph({
-              alignment: AlignmentType.CENTER,
-              children: [
-                new TextRun(resumeData.personalInfo.email || ""),
-                resumeData.personalInfo.phone ? new TextRun(" • " + resumeData.personalInfo.phone) : new TextRun(""),
-                resumeData.personalInfo.location ? new TextRun(" • " + resumeData.personalInfo.location) : new TextRun(""),
-              ],
-              spacing: {
-                after: 200,
-              },
-            }),
-            
-            // Links
-            ...(resumeData.personalInfo.links && resumeData.personalInfo.links.length > 0 ? [
-              new Paragraph({
-                alignment: AlignmentType.CENTER,
-                children: resumeData.personalInfo.links.map((link, index) => {
-                  const children = [];
-                  if (index > 0) {
-                    children.push(new TextRun(" • "));
-                  }
-                  children.push(new TextRun({
-                    text: link.title,
-                    style: "Hyperlink",
-                  }));
-                  return children;
-                }).flat(),
-                spacing: {
-                  after: 400,
-                },
-              }),
-            ] : []),
-            
-            // Summary
-            ...(resumeData.personalInfo.summary ? [
-              new Paragraph({
-                text: "Professional Summary",
-                heading: HeadingLevel.HEADING_2,
-                thematicBreak: true,
-                spacing: {
-                  after: 200,
-                },
-              }),
-              ...(resumeData.personalInfo.summary.includes('<ul>') || resumeData.personalInfo.summary.includes('<li>') 
-                ? extractListItems(resumeData.personalInfo.summary).map(item => 
-                    new Paragraph({
-                      text: item,
-                      bullet: { level: 0 },
-                      indent: { left: 720 },
-                      spacing: { after: 100 },
-                    })
-                  )
-                : [new Paragraph({
-                    text: htmlToPlainText(resumeData.personalInfo.summary),
-                    spacing: { after: 400 },
-                  })]
-              ),
-            ] : []),
-            
-            // Sections
-            ...resumeData.sections.flatMap(section => {
-              const sectionElements = [
-                new Paragraph({
-                  text: section.title,
-                  heading: HeadingLevel.HEADING_2,
-                  thematicBreak: true,
-                  spacing: {
-                    after: 200,
-                  },
-                }),
-              ];
-              
-              // Add items
-              section.items.forEach(item => {
-                // Title and date
-                sectionElements.push(
-                  new Paragraph({
-                    children: [
-                      new TextRun({
-                        text: item.title,
-                        bold: true,
-                      }),
-                      item.date ? new TextRun({
-                        text: "  " + item.date,
-                        bold: false,
-                      }) : new TextRun(""),
-                    ],
-                    spacing: {
-                      after: 100,
-                    },
-                  })
-                );
-                
-                // Subtitle
-                if (item.subtitle) {
-                  sectionElements.push(
-                    new Paragraph({
-                      text: item.subtitle,
-                      spacing: {
-                        after: 100,
-                      },
-                    })
-                  );
-                }
-                
-                // Description - handle bullet points
-                if (item.description) {
-                  const descriptionText = item.description;
-                  
-                  // Check if the description contains bullet points
-                  if (descriptionText.includes('<ul>') || descriptionText.includes('<li>')) {
-                    // Extract list items
-                    const listItems = extractListItems(descriptionText);
-                    
-                    listItems.forEach(itemText => {
-                      sectionElements.push(
-                        new Paragraph({
-                          text: itemText,
-                          bullet: {
-                            level: 0,
-                          },
-                          indent: {
-                            left: 720, // 0.5 inches in twips
-                          },
-                          spacing: {
-                            after: 100,
-                          },
-                        })
-                      );
-                    });
-                  } else {
-                    // Regular text
-                    sectionElements.push(
-                      new Paragraph({
-                        text: htmlToPlainText(descriptionText),
-                        spacing: {
-                          after: 100,
-                        },
-                      })
-                    );
-                  }
-                }
-                
-                // Add spacing after each item
-                sectionElements.push(
-                  new Paragraph({
-                    text: "",
-                    spacing: {
-                      after: 200,
-                    },
-                  })
-                );
-              });
-              
-              return sectionElements;
-            }),
-          ],
-        }],
-      });
-      
-      // Generate the DOCX blob
-      const blob = await Packer.toBlob(doc);
-      
-      // Create a URL for the blob
-      const url = URL.createObjectURL(blob);
-      
-      // Create the Google Docs URL
-      const googleDocsUrl = `https://docs.google.com/document/create?usp=upload_and_import`;
-      
-      // Open Google Docs in a new tab
-      window.open(googleDocsUrl, '_blank');
-      
-      // Show instructions toast
-      toast({
-        title: "Google Docs opened",
-        description: "In Google Docs, use File > Import to upload the DOCX file that was just downloaded.",
-        duration: 10000, // Show for 10 seconds
-      });
-      
-      // Download the DOCX file for the user to import
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${resumeData.personalInfo.firstName}_${resumeData.personalInfo.lastName}_Resume_for_GoogleDocs.docx`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      
-    } catch (error) {
-      console.error("Google Docs export error:", error);
       toast({
         title: "Export failed",
-        description: "There was an error preparing your resume for Google Docs",
+        description: "Failed to export your resume as a PDF. Please try again.",
         variant: "destructive",
-      });
+      })
+    } finally {
+      setIsExporting(false)
     }
+  }
+
+  const handleExportDOCX = async () => {
+    if (isExporting) return
+    
+    setIsExporting(true)
+    
+    try {
+      // Get the preview element
+      const previewElement = isDesktop
+        ? desktopPreviewRef.current
+        : mobilePreviewRef.current
+      
+      if (!previewElement) {
+        throw new Error("Preview element not found")
+      }
+      
+      // Generate a filename
+      const fullName = `${resumeData.personalInfo.firstName} ${resumeData.personalInfo.lastName}`.trim()
+      const filename = fullName
+        ? `${fullName} - Resume.docx`
+        : "Resume.docx"
+      
+      // Generate the DOCX
+      const docx = await generateDOCX(previewElement, filename)
+      
+      // Create a download link
+      const url = URL.createObjectURL(docx)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      
+      // Clean up
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+      
+      toast({
+        title: "DOCX exported",
+        description: "Your resume has been exported as a DOCX file.",
+      })
+    } catch (error) {
+      console.error("Failed to export DOCX:", error)
+      
+      toast({
+        title: "Export failed",
+        description: "Failed to export your resume as a DOCX file. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const handleExportGoogleDocs = async () => {
+    // This is a placeholder for now
+    toast({
+      title: "Coming soon",
+      description: "Export to Google Docs is coming soon.",
+    })
   }
 
   return (
@@ -537,8 +481,8 @@ export default function BuilderPage() {
           </Link>
           
           <div className="ml-auto flex items-center gap-2">
-            <ATSChecker resumeData={resumeData} />
-            <GrammarChecker resumeData={resumeData} />
+            <ATSChecker resumeData={resumeData as any} />
+            <GrammarChecker resumeData={resumeData as any} />
             
             <div className="hidden items-center gap-2 md:flex">
               <Select
@@ -586,6 +530,8 @@ export default function BuilderPage() {
                   ))}
                 </DropdownMenuContent>
               </DropdownMenu>
+
+              <FontSelector value={font} onValueChange={setFont} />
             </div>
             
             <DropdownMenu>
@@ -616,106 +562,76 @@ export default function BuilderPage() {
       </header>
       
       <main className="flex-1">
-        {isDesktop ? (
-          <div className="container grid h-full grid-cols-1 gap-4 p-4 md:grid-cols-2">
-            <div className="overflow-y-auto">
-              <DndContext
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleSectionOrderChange}
-                modifiers={[restrictToVerticalAxis]}
-              >
-                <SortableContext
-                  items={resumeData.sections.map((section) => section.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  <ResumeEditor data={resumeData} onChange={handleDataChange} />
-                </SortableContext>
-              </DndContext>
-            </div>
-            <div className="overflow-y-auto bg-gray-50 p-4">
-              <div ref={desktopPreviewRef}>
-                <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
-              </div>
-            </div>
+        <div className="container py-4">
+          <div className="flex items-center justify-between mb-4 max-w-3xl mx-auto">
+            <ResumeNameInput 
+              name={resumeName} 
+              onChange={setResumeName} 
+              className="flex-1"
+            />
+            <AutoSaveStatus 
+              isSaving={isSaving} 
+              lastSaved={lastSaved} 
+              error={error} 
+              className="ml-4"
+            />
           </div>
-        ) : (
-          <div className="container h-full p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
-              <div className="flex items-center justify-between border-b px-4">
-                <TabsList>
-                  <TabsTrigger value="edit">Edit</TabsTrigger>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                </TabsList>
-                <div className="flex items-center gap-2 py-2">
-                  <Select
-                    value={template}
-                    onValueChange={(value) => setTemplate(value)}
-                  >
-                    <SelectTrigger className="w-[130px]">
-                      <SelectValue placeholder="Template" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="professional">Professional</SelectItem>
-                      <SelectItem value="minimalist">Minimalist</SelectItem>
-                      <SelectItem value="modern">Modern</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="icon">
-                        <div
-                          className="h-4 w-4 rounded-full"
-                          style={{
-                            backgroundColor: colorThemes.find(
-                              (theme) => theme.value === colorTheme
-                            )?.color,
-                          }}
-                        />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {colorThemes.map((theme) => (
-                        <DropdownMenuItem
-                          key={theme.value}
-                          className="flex items-center gap-2"
-                          onClick={() => setColorTheme(theme.value as ColorTheme)}
-                        >
-                          <div
-                            className="h-4 w-4 rounded-full"
-                            style={{ backgroundColor: theme.color }}
-                          />
-                          <span>{theme.name}</span>
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-              <TabsContent value="edit" className="h-full overflow-y-auto p-4 m-0">
+
+          {isDesktop ? (
+            <div className="grid h-full grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="overflow-y-auto resume-editor">
                 <DndContext
                   sensors={sensors}
-                  collisionDetection={closestCenter}
                   onDragEnd={handleSectionOrderChange}
-                  modifiers={[restrictToVerticalAxis]}
                 >
-                  <SortableContext
-                    items={resumeData.sections.map((section) => section.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
+                  <SortableContext items={resumeData.sections.map((section) => section.id)}>
+                    <ResumeEditor data={resumeData} onChange={handleDataChange} />
+                  </SortableContext>
+                </DndContext>
+              </div>
+              
+              <div className="overflow-y-auto bg-gray-50 p-4">
+                <div ref={desktopPreviewRef}>
+                  <ResumePreview 
+                    data={resumeData as any} 
+                    template={template} 
+                    colorTheme={colorTheme} 
+                    font={font}
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="edit">Edit</TabsTrigger>
+                <TabsTrigger value="preview">Preview</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="edit" className="h-full overflow-y-auto p-4 m-0 resume-editor">
+                <DndContext
+                  sensors={sensors}
+                  onDragEnd={handleSectionOrderChange}
+                >
+                  <SortableContext items={resumeData.sections.map((section) => section.id)}>
                     <ResumeEditor data={resumeData} onChange={handleDataChange} />
                   </SortableContext>
                 </DndContext>
               </TabsContent>
-              <TabsContent value="preview" className="h-full overflow-y-auto bg-gray-50 p-4 m-0">
+              
+              <TabsContent value="preview" className="h-full overflow-y-auto p-4 m-0">
                 <div ref={mobilePreviewRef}>
-                  <ResumePreview data={resumeData} template={template} colorTheme={colorTheme} />
+                  <ResumePreview 
+                    data={resumeData as any}
+                    template={template} 
+                    colorTheme={colorTheme}
+                    font={font}
+                  />
                 </div>
               </TabsContent>
             </Tabs>
-          </div>
-        )}
+          )}
+        </div>
       </main>
     </div>
   )

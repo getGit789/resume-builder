@@ -23,7 +23,8 @@ function getMockResume(id: string) {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // Await params before destructuring
+    const id = params.id;
     const { isPublic } = await request.json();
     
     // Check if resume exists

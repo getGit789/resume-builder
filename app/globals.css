@@ -92,3 +92,41 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+/* Remove borders and focus rings from inputs and textareas */
+.no-focus-borders input,
+.no-focus-borders textarea,
+.no-focus-borders [contenteditable="true"],
+.no-focus-borders .ProseMirror,
+.no-focus-borders .editor {
+  @apply border-none shadow-none focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0 !important;
+}
+
+/* Apply the no-focus-borders class to the entire resume editor */
+.resume-editor {
+  @apply no-focus-borders;
+}
+
+/* Add light gray background to editable fields */
+.resume-editor input:not([type="checkbox"]):not([type="radio"]),
+.resume-editor textarea,
+.resume-editor [contenteditable="true"],
+.resume-editor .ProseMirror,
+.resume-editor .editor {
+  @apply bg-gray-50 rounded-md px-3 py-2 border-transparent !important;
+}
+
+/* Keep the background when focused, but don't add borders */
+.resume-editor input:focus,
+.resume-editor textarea:focus,
+.resume-editor [contenteditable="true"]:focus,
+.resume-editor .ProseMirror:focus,
+.resume-editor .editor:focus {
+  @apply bg-gray-50 border-transparent ring-0 ring-offset-0 !important;
+}
+
+/* Ensure the Input component from shadcn has the right styling */
+.resume-editor .shadcn-input,
+.resume-editor input.shadcn-input {
+  @apply bg-gray-50 border-transparent ring-0 ring-offset-0 !important;
+}

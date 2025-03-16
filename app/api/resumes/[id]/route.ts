@@ -120,7 +120,8 @@ function getMockResume(id: string) {
 
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // Await params before destructuring
+    const id = params.id;
     
     // Try to get from cache first
     let cachedResume;
@@ -192,7 +193,8 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 export async function PUT(request: Request, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // Await params before destructuring
+    const id = params.id;
     const { name, data, template, colorTheme } = await request.json();
     
     // Check if resume exists
@@ -296,7 +298,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
 
 export async function DELETE(request: Request, { params }: RouteParams) {
   try {
-    const { id } = params;
+    // Await params before destructuring
+    const id = params.id;
     
     // Check if resume exists
     try {
