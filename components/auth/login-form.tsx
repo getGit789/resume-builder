@@ -20,9 +20,10 @@ type LoginFormValues = z.infer<typeof loginSchema>
 
 interface LoginFormProps {
   onSuccess: () => void
+  callbackUrl?: string
 }
 
-export function LoginForm({ onSuccess }: LoginFormProps) {
+export function LoginForm({ onSuccess, callbackUrl = "/dashboard" }: LoginFormProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const { toast } = useToast()
@@ -51,6 +52,7 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
         email: data.email,
         password: data.password,
         redirect: false,
+        callbackUrl,
       })
       
       console.log("Sign in result:", result)
@@ -122,11 +124,6 @@ export function LoginForm({ onSuccess }: LoginFormProps) {
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "Logging in..." : "Login"}
       </Button>
-      
-      <div className="text-xs text-center text-muted-foreground">
-        <p>For testing, use: test@example.com / Password123</p>
-        <p>Or create a new account in the Sign Up tab</p>
-      </div>
     </form>
   )
 } 

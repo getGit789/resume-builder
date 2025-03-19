@@ -2,68 +2,61 @@ import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
 
-// Define which routes require authentication
-const protectedRoutes = [
-  "/dashboard",
-  "/builder/edit",
+// List of paths that require authentication
+const protectedPaths = [
+  '/dashboard',
+  '/api/resumes',
 ]
 
-// Define which routes are only for guests (not logged in users)
-const guestOnlyRoutes = [
-  "/auth",
+// List of paths that are always public
+const publicPaths = [
+  '/auth',
+  '/',
+  '/about',
+  '/pricing',
+  '/contact',
+  '/builder', // Allow public access to builder
 ]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
-  // Get the token from the session
-  const token = await getToken({
-    req: request,
-    secret: process.env.NEXTAUTH_SECRET,
-  })
-  
-  // Check if the user is authenticated
-  const isAuthenticated = !!token
-  
-  // Check if the route requires authentication
-  const isProtectedRoute = protectedRoutes.some(route => 
-    pathname.startsWith(route)
-  )
-  
-  // Check if the route is for guests only
-  const isGuestOnlyRoute = guestOnlyRoutes.some(route => 
-    pathname.startsWith(route)
-  )
-  
-  // Check if the user is in guest mode
-  const isGuestMode = request.cookies.get("guestMode")?.value === "true"
-  
-  // Allow guest mode users to access protected routes
-  if (isProtectedRoute && !isAuthenticated && !isGuestMode) {
-    const redirectUrl = new URL("/auth", request.url)
-    redirectUrl.searchParams.set("callbackUrl", pathname)
-    return NextResponse.redirect(redirectUrl)
+  // Check if the path is public
+  if (publicPaths.some(path => pathname.startsWith(path))) {
+    return NextResponse.next()
   }
   
-  // Redirect authenticated users from guest-only routes to dashboard
-  if (isGuestOnlyRoute && isAuthenticated) {
-    return NextResponse.redirect(new URL("/dashboard", request.url))
+  // Check if the path requires authentication
+  const isProtectedPath = protectedPaths.some(path => pathname.startsWith(path))
+  
+  if (!isProtectedPath) {
+    return NextResponse.next()
   }
   
-  return NextResponse.next()
+  // Check for authenticated session
+  const token = await getToken({ req: request })
+  
+  if (token) {
+    // Allow authenticated access
+    return NextResponse.next()
+  }
+  
+  // If no valid session, redirect to auth page
+  const signInUrl = new URL('/auth', request.url)
+  signInUrl.searchParams.set('callbackUrl', pathname)
+  return NextResponse.redirect(signInUrl)
 }
 
 // Configure the middleware to run on specific paths
 export const config = {
   matcher: [
     /*
-     * Match all request paths except:
+     * Match all request paths except for the ones starting with:
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public files (public directory)
-     * - api routes (API endpoints)
+     * - public folder
      */
-    "/((?!_next/static|_next/image|favicon.ico|public|api).*)",
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 } 

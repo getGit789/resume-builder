@@ -1,6 +1,10 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCache, setCache } from '@/lib/redis';
+import { getCurrentUser } from '@/lib/auth';
+import { nanoid } from 'nanoid';
+import { AuthUser, ResumeWhereInput, ResumeSelect } from '@/types/resume';
+import { defaultResumeData } from '@/lib/default-resume-data';
 
 // Mock data for when database is unavailable
 const mockResumes = [
@@ -11,6 +15,7 @@ const mockResumes = [
     updatedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
     template: 'professional',
     colorTheme: 'blue',
+    font: 'Inter',
   },
   {
     id: 'mock-2',
@@ -19,114 +24,78 @@ const mockResumes = [
     updatedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
     template: 'modern',
     colorTheme: 'green',
+    font: 'Roboto',
   },
 ];
 
-export async function GET() {
+/**
+ * GET /api/resumes
+ * Get all resumes for the current user
+ */
+export async function GET(request: NextRequest) {
   try {
-    // Try to get from cache first
-    let cachedResumes;
-    try {
-      cachedResumes = await getCache('all_resumes');
-      if (cachedResumes) {
-        return NextResponse.json(cachedResumes);
-      }
-    } catch (cacheError) {
-      console.warn('Cache error, continuing to database:', cacheError);
+    const user = await getCurrentUser(request) as AuthUser | null;
+    
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-
-    // If not in cache, fetch from database
-    try {
-      const resumes = await prisma.resume.findMany({
-        select: {
-          id: true,
-          name: true,
-          createdAt: true,
-          updatedAt: true,
-          template: true,
-          colorTheme: true,
-        },
-        orderBy: {
-          updatedAt: 'desc',
-        },
-      });
-      
-      // Cache the results for 5 minutes
-      try {
-        await setCache('all_resumes', resumes, 300);
-      } catch (cacheError) {
-        console.warn('Failed to cache resumes:', cacheError);
-      }
-      
-      return NextResponse.json(resumes);
-    } catch (dbError) {
-      console.error('Database error, falling back to mock data:', dbError);
-      return NextResponse.json(mockResumes);
-    }
-  } catch (error: any) {
-    console.error('Error fetching resumes:', error);
-    // Return mock data as fallback
-    return NextResponse.json(mockResumes);
+    
+    const resumes = await prisma.resume.findMany({
+      where: {
+        userId: user.id,
+      },
+      orderBy: {
+        updatedAt: "desc",
+      },
+    });
+    
+    return NextResponse.json(resumes);
+  } catch (error) {
+    console.error("Error getting resumes:", error);
+    return NextResponse.json(
+      { error: "Failed to get resumes" },
+      { status: 500 }
+    );
   }
 }
 
-export async function POST(request: Request) {
+/**
+ * POST /api/resumes
+ * Create a new resume
+ */
+export async function POST(request: NextRequest) {
   try {
-    const { name, data, template, colorTheme } = await request.json();
+    const user = await getCurrentUser(request) as AuthUser | null;
     
-    // Validate required fields
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    
+    const body = await request.json();
+    const { name, data = defaultResumeData, template = "professional", colorTheme = "default" } = body;
+    
     if (!name) {
       return NextResponse.json(
-        { error: 'Name is required' },
+        { error: "Name is required" },
         { status: 400 }
       );
     }
     
-    if (!data || !data.personalInfo) {
-      return NextResponse.json(
-        { error: 'Resume data is required' },
-        { status: 400 }
-      );
-    }
-    
-    // Create the resume
-    try {
-      const resume = await prisma.resume.create({
-        data: {
-          name,
-          data,
-          template: template || 'professional',
-          colorTheme: colorTheme || 'default',
-        },
-      });
-      
-      // Invalidate cache
-      try {
-        await getCache('all_resumes');
-      } catch (cacheError) {
-        console.warn('Failed to invalidate cache:', cacheError);
-      }
-      
-      return NextResponse.json(resume);
-    } catch (dbError) {
-      console.error('Database error, creating mock resume:', dbError);
-      // Create a mock resume when database is unavailable
-      const mockResume = {
-        id: `mock-${Date.now()}`,
+    const resume = await prisma.resume.create({
+      data: {
         name,
         data,
-        template: template || 'professional',
-        colorTheme: colorTheme || 'default',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      
-      return NextResponse.json(mockResume);
-    }
-  } catch (error: any) {
-    console.error('Error creating resume:', error);
+        template,
+        colorTheme,
+        userId: user.id,
+      },
+    });
+    
+    return NextResponse.json(resume);
+  } catch (error) {
+    console.error("Error creating resume:", error);
     return NextResponse.json(
-      { error: 'Failed to create resume' },
+      { error: "Failed to create resume" },
       { status: 500 }
     );
   }

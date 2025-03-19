@@ -1,6 +1,8 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { ColorTheme, ResumeData } from '@/types';
+import { useSession } from 'next-auth/react';
+import { cookies } from 'next/headers';
 
 // Define the Resume type
 export interface Resume {
@@ -20,6 +22,8 @@ interface ResumeState {
   // Data
   resumes: Resume[];
   selectedResumeId: string | null;
+  guestMode: boolean;
+  guestToken: string | null;
   
   // UI states
   isLoading: boolean;
@@ -31,8 +35,9 @@ interface ResumeState {
   createResume: (name: string, data: ResumeData, template?: string, colorTheme?: string) => Promise<Resume | null>;
   updateResume: (id: string, updates: Partial<Resume>) => Promise<Resume | null>;
   deleteResume: (id: string) => Promise<boolean>;
-  shareResume: (id: string) => Promise<{ shareToken: string } | null>;
+  shareResume: (id: string, isPublic?: boolean) => Promise<{ shareToken: string } | null>;
   setSelectedResumeId: (id: string | null) => void;
+  setGuestMode: (enabled: boolean) => void;
   clearError: () => void;
 }
 
@@ -43,6 +48,8 @@ export const useResumeStore = create<ResumeState>()(
       // Initial state
       resumes: [],
       selectedResumeId: null,
+      guestMode: false,
+      guestToken: null,
       isLoading: false,
       error: null,
       
@@ -50,9 +57,22 @@ export const useResumeStore = create<ResumeState>()(
       fetchResumes: async () => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch('/api/resumes');
+          const response = await fetch('/api/resumes', {
+            credentials: 'include',
+          });
           
           if (!response.ok) {
+            if (response.status === 401) {
+              // If unauthorized and not in guest mode, enable guest mode
+              if (!get().guestMode) {
+                const guestToken = `guest-${Date.now()}`;
+                document.cookie = `guestMode=true; path=/`;
+                document.cookie = `guestToken=${guestToken}; path=/`;
+                set({ guestMode: true, guestToken });
+                // Retry the fetch with guest mode
+                return get().fetchResumes();
+              }
+            }
             throw new Error('Failed to fetch resumes');
           }
           
@@ -70,9 +90,18 @@ export const useResumeStore = create<ResumeState>()(
       fetchResume: async (id: string) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(`/api/resumes/${id}`);
+          const response = await fetch(`/api/resumes/${id}`, {
+            credentials: 'include',
+          });
           
           if (!response.ok) {
+            if (response.status === 401 && !get().guestMode) {
+              const guestToken = `guest-${Date.now()}`;
+              document.cookie = `guestMode=true; path=/`;
+              document.cookie = `guestToken=${guestToken}; path=/`;
+              set({ guestMode: true, guestToken });
+              return get().fetchResume(id);
+            }
             throw new Error('Failed to fetch resume');
           }
           
@@ -100,6 +129,7 @@ export const useResumeStore = create<ResumeState>()(
         try {
           const response = await fetch('/api/resumes', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -107,6 +137,13 @@ export const useResumeStore = create<ResumeState>()(
           });
           
           if (!response.ok) {
+            if (response.status === 401 && !get().guestMode) {
+              const guestToken = `guest-${Date.now()}`;
+              document.cookie = `guestMode=true; path=/`;
+              document.cookie = `guestToken=${guestToken}; path=/`;
+              set({ guestMode: true, guestToken });
+              return get().createResume(name, data, template, colorTheme);
+            }
             throw new Error('Failed to create resume');
           }
           
@@ -134,6 +171,7 @@ export const useResumeStore = create<ResumeState>()(
         try {
           const response = await fetch(`/api/resumes/${id}`, {
             method: 'PUT',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -141,6 +179,13 @@ export const useResumeStore = create<ResumeState>()(
           });
           
           if (!response.ok) {
+            if (response.status === 401 && !get().guestMode) {
+              const guestToken = `guest-${Date.now()}`;
+              document.cookie = `guestMode=true; path=/`;
+              document.cookie = `guestToken=${guestToken}; path=/`;
+              set({ guestMode: true, guestToken });
+              return get().updateResume(id, updates);
+            }
             throw new Error('Failed to update resume');
           }
           
@@ -191,24 +236,44 @@ export const useResumeStore = create<ResumeState>()(
         }
       },
       
-      shareResume: async (id: string) => {
+      shareResume: async (id: string, isPublic?: boolean) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await fetch(`/api/resumes/${id}/share`, {
+          // Create a request with optional isPublic parameter
+          const requestOptions: RequestInit = {
             method: 'POST',
-          });
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          };
+          
+          // If isPublic is explicitly provided, include it in the body
+          if (typeof isPublic === 'boolean') {
+            requestOptions.body = JSON.stringify({ isPublic });
+          }
+          
+          const response = await fetch(`/api/resumes/${id}/share`, requestOptions);
           
           if (!response.ok) {
-            throw new Error('Failed to share resume');
+            const errorData = await response.json().catch(() => null);
+            throw new Error(errorData?.error || 'Failed to share resume');
           }
           
           const result = await response.json();
+          
+          if (!result || typeof result !== 'object') {
+            throw new Error('Invalid response from server');
+          }
           
           // Update the resume in the store with the share token
           set(state => ({
             resumes: state.resumes.map(r => 
               r.id === id 
-                ? { ...r, isPublic: true, shareToken: result.shareToken } 
+                ? { 
+                    ...r, 
+                    isPublic: result.isPublic || false, 
+                    shareToken: result.shareToken || null 
+                  } 
                 : r
             ),
             isLoading: false
@@ -221,7 +286,7 @@ export const useResumeStore = create<ResumeState>()(
             error: error instanceof Error ? error.message : 'An unknown error occurred', 
             isLoading: false 
           });
-          return null;
+          throw error; // Re-throw the error to allow consumers to handle it
         }
       },
       
@@ -229,16 +294,30 @@ export const useResumeStore = create<ResumeState>()(
         set({ selectedResumeId: id });
       },
       
-      clearError: () => {
-        set({ error: null });
+      setGuestMode: (enabled: boolean) => {
+        if (enabled) {
+          const guestToken = `guest-${Date.now()}`;
+          document.cookie = `guestMode=true; path=/`;
+          document.cookie = `guestToken=${guestToken}; path=/`;
+          set({ guestMode: true, guestToken });
+        } else {
+          document.cookie = 'guestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          document.cookie = 'guestToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+          set({ guestMode: false, guestToken: null });
+        }
+        // Clear resumes when switching modes
+        set({ resumes: [] });
       },
+      
+      clearError: () => set({ error: null }),
     }),
     {
       name: 'resume-storage', // unique name for localStorage
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({ 
         resumes: state.resumes,
-        selectedResumeId: state.selectedResumeId 
+        selectedResumeId: state.selectedResumeId,
+        guestMode: state.guestMode 
       }), // only persist these fields
     }
   )

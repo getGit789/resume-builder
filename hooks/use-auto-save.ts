@@ -1,0 +1,80 @@
+"use client";
+
+import { useState, useEffect, useRef } from "react";
+
+interface AutoSaveOptions {
+  onSave: () => Promise<void>;
+  debounceMs?: number;
+  autoSaveEnabled?: boolean;
+}
+
+interface AutoSaveResult {
+  isSaving: boolean;
+  lastSaved: Date | null;
+  error: Error | null;
+  hasPendingChanges: boolean;
+}
+
+export function useAutoSave({
+  onSave,
+  debounceMs = 1000,
+  autoSaveEnabled = true,
+}: AutoSaveOptions): AutoSaveResult {
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [hasPendingChanges, setHasPendingChanges] = useState(false);
+  
+  const timeoutRef = useRef<NodeJS.Timeout>();
+  const onSaveRef = useRef(onSave);
+  
+  // Update onSave ref when the function changes
+  useEffect(() => {
+    onSaveRef.current = onSave;
+  }, [onSave]);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+  
+  // Auto-save effect
+  useEffect(() => {
+    if (!autoSaveEnabled) return;
+    
+    setHasPendingChanges(true);
+    
+    timeoutRef.current = setTimeout(async () => {
+      try {
+        setIsSaving(true);
+        setError(null);
+        
+        await onSaveRef.current();
+        
+        setLastSaved(new Date());
+        setHasPendingChanges(false);
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error("Failed to save"));
+      } finally {
+        setIsSaving(false);
+      }
+    }, debounceMs);
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [autoSaveEnabled, debounceMs]);
+  
+  return {
+    isSaving,
+    lastSaved,
+    error,
+    hasPendingChanges
+  };
+} 

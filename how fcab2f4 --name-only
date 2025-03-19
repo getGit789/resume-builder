@@ -1,0 +1,5 @@
+[33mfcab2f4[m[33m ([m[1;36mHEAD -> [m[1;32mTesting_pre_Production[m[33m, [m[1;31morigin/Testing_pre_Production[m[33m, [m[1;32mfix/session-loading[m[33m)[m Add authentication system with NextAuth and database integration
+[33m37e4976[m Complete CI/CD pipeline and deployment configuration
+[33m75eece9[m Add end-to-end testing with Playwright for Resume Builder application
+[33md54407b[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m Grammar checker implemented
+[33me31fecb[m Add ATS checker

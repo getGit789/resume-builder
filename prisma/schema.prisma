@@ -33,8 +33,10 @@ model Resume {
   data          Json      // Stores the entire resume data structure
   template      String    @default("professional")
   colorTheme    String    @default("default")
+  font          String    @default("Inter")     // Font field with default value
   isPublic      Boolean   @default(false)
   shareToken    String?   @unique
+  guestToken    String?   // Token to track resumes created by guest users
   exports       Export[]
 }
 
@@ -43,9 +45,10 @@ model Export {
   resumeId      String
   resume        Resume    @relation(fields: [resumeId], references: [id])
   format        String    // "pdf", "docx", etc.
-  status        String    // "pending", "processing", "completed", "failed"
+  status        String    // "PROCESSING", "COMPLETED", "FAILED"
   url           String?   // URL to the exported file
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   error         String?   // Error message if export failed
+  type          String    @default("PDF") // PDF, DOCX, etc.
 }

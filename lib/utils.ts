@@ -5,24 +5,44 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
-export function formatDate(input: string | number | Date): string {
-  const date = new Date(input)
-  return date.toLocaleDateString("en-US", {
+export function generateId(): string {
+  return Math.random().toString(36).substring(2, 15)
+}
+
+export function formatDate(date: Date | string): string {
+  return new Date(date).toLocaleDateString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
   })
 }
 
-export function formatDateTime(input: string | number | Date): string {
-  const date = new Date(input)
-  return date.toLocaleDateString("en-US", {
+export function formatDateTime(date: Date | string): string {
+  return new Date(date).toLocaleString("en-US", {
     month: "long",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "numeric",
   })
+}
+
+export function isValidUrl(url: string): boolean {
+  try {
+    new URL(url)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((n) => n[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2)
 }
 
 export function absoluteUrl(path: string) {

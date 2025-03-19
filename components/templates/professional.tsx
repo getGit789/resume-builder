@@ -1,6 +1,7 @@
 "use client"
 
 import { ColorTheme, ResumeData, themeColors } from "@/types"
+import { useEffect, useRef, useId } from "react"
 
 interface ProfessionalTemplateProps {
   data: ResumeData;
@@ -8,140 +9,260 @@ interface ProfessionalTemplateProps {
   font?: string;
 }
 
+function getThemeColor(colorTheme: ColorTheme): string {
+  return themeColors[colorTheme] || themeColors.blue;
+}
+
 export function ProfessionalTemplate({ 
   data, 
-  colorTheme = "default",
-  font = "'Inter', sans-serif"
+  colorTheme = "blue",
+  font = "Inter"
 }: ProfessionalTemplateProps) {
-  // Get the theme color
-  const themeColor = themeColors[colorTheme] || themeColors.default;
-  
+  const randomId = useId().replace(/:/g, "");
+  const themeColor = getThemeColor(colorTheme);
+
   return (
-    <div className="font-serif" style={{ fontFamily: font }}>
-      <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: themeColor }}>
-          {data.personalInfo.firstName} {data.personalInfo.lastName}
-        </h1>
-        <p className="text-lg text-gray-700">
-          {data.personalInfo.title}
-        </p>
-        <div className="flex justify-center gap-4 mt-2 text-sm text-gray-600">
-          {data.personalInfo.email && <span>{data.personalInfo.email}</span>}
-          {data.personalInfo.phone && <span>• {data.personalInfo.phone}</span>}
-          {data.personalInfo.location && <span>• {data.personalInfo.location}</span>}
-        </div>
-        {data.personalInfo.links && data.personalInfo.links.length > 0 && (
-          <div className="flex justify-center gap-4 mt-1 text-sm">
-            {data.personalInfo.links.map((link) => (
-              <a
-                key={link.id}
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-primary hover:underline"
-              >
-                {link.title}
-              </a>
-            ))}
+    <div className={randomId}>
+      <style>
+        {`
+          .${randomId} {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 12.7mm;
+            font-family: ${font}, serif;
+            color: black;
+            background: white;
+            line-height: 1.3;
+            font-size: 11pt;
+          }
+
+          .${randomId} .professional-name {
+            font-size: 24pt;
+            font-weight: 600;
+            color: ${themeColor};
+            margin: 0;
+            line-height: 1.2;
+            text-align: center;
+          }
+
+          .${randomId} .professional-title {
+            font-size: 14pt;
+            color: black;
+            margin: 4pt 0 0 0;
+            line-height: 1.2;
+            text-align: center;
+          }
+
+          .${randomId} .contact-info {
+            font-size: 11pt;
+            color: black;
+            margin: 8pt 0;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 0 8pt;
+            text-align: center;
+          }
+
+          .${randomId} .contact-info > *:not(:last-child)::after {
+            content: "•";
+            margin-left: 8pt;
+            color: black;
+          }
+
+          .${randomId} .professional-section-title {
+            font-size: 14pt;
+            font-weight: 600;
+            color: ${themeColor};
+            margin: 16pt 0 8pt 0;
+            padding-bottom: 4pt;
+            border-bottom: 1px solid ${themeColor};
+            line-height: 1.2;
+          }
+
+          .${randomId} .section-container {
+            margin: 16pt 0;
+            break-inside: avoid;
+          }
+
+          .${randomId} .section-container:first-child {
+            margin-top: 0;
+          }
+
+          .${randomId} .section-item {
+            margin: 12pt 0;
+            break-inside: avoid;
+          }
+
+          .${randomId} .section-item:first-child {
+            margin-top: 8pt;
+          }
+
+          .${randomId} .section-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 4pt;
+          }
+
+          .${randomId} .section-item-title {
+            font-size: 12pt;
+            font-weight: 600;
+            color: black;
+            margin: 0;
+            line-height: 1.2;
+          }
+
+          .${randomId} .section-item-subtitle {
+            font-size: 11pt;
+            color: black;
+            margin: 0 0 4pt 0;
+            line-height: 1.4;
+          }
+
+          .${randomId} .date {
+            font-size: 11pt;
+            color: black;
+          }
+
+          .${randomId} .rich-text-content {
+            font-size: 11pt;
+            color: black;
+            line-height: 1.4;
+          }
+
+          .${randomId} .rich-text-content ul {
+            margin: 4pt 0;
+            padding-left: 16pt;
+            list-style-type: disc !important;
+          }
+
+          .${randomId} .rich-text-content ul li {
+            margin: 2pt 0;
+            color: black;
+          }
+
+          .${randomId} .rich-text-content ul li::marker {
+            color: black;
+          }
+
+          .${randomId} .professional-link {
+            color: black !important;
+            text-decoration: underline !important;
+          }
+
+          .${randomId} .rich-text-content a {
+            color: ${themeColor} !important;
+            text-decoration: underline !important;
+            text-decoration-color: ${themeColor} !important;
+          }
+
+          @page {
+            size: A4;
+            margin: 12.7mm;
+          }
+
+          @media print {
+            .${randomId} {
+              padding: 0;
+              margin: 0;
+              width: 100%;
+              min-height: 100%;
+              print-color-adjust: exact;
+              -webkit-print-color-adjust: exact;
+            }
+
+            .${randomId} .professional-section-title {
+              color: ${themeColor} !important;
+              border-color: ${themeColor} !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .${randomId} .professional-name {
+              color: ${themeColor} !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .${randomId} .professional-link {
+              color: black !important;
+              text-decoration: underline !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+
+            .${randomId} .rich-text-content a {
+              color: ${themeColor} !important;
+              text-decoration: underline !important;
+              text-decoration-color: ${themeColor} !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+          }
+        `}
+      </style>
+
+      <div>
+        <h1 className="professional-name">{data.personalInfo.firstName} {data.personalInfo.lastName}</h1>
+        {data.personalInfo.title && (
+          <div className="professional-title">
+            {data.personalInfo.title}
           </div>
         )}
-      </div>
 
-      {data.personalInfo.summary && (
-        <div className="mb-6">
-          <h2 
-            className="text-lg font-bold pb-1 mb-2"
-            style={{ 
-              color: themeColor,
-              borderBottom: `2px solid ${themeColor}` 
-            }}
-          >
-            Professional Summary
-          </h2>
-          <div 
-            className="text-sm rich-text-content" 
-            dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }}
-          />
+        <div className="contact-info">
+          {data.personalInfo.email && (
+            <span>{data.personalInfo.email}</span>
+          )}
+          {data.personalInfo.phone && (
+            <span>{data.personalInfo.phone}</span>
+          )}
+          {data.personalInfo.location && (
+            <span>{data.personalInfo.location}</span>
+          )}
+          {data.personalInfo.links?.map((link) => (
+            <a
+              key={link.id}
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="professional-link"
+            >
+              {link.title}
+            </a>
+          ))}
         </div>
-      )}
 
-      {data.sections && data.sections.map((section) => (
-        <div key={section.id} className="mb-6">
-          <h2 
-            className="text-lg font-bold pb-1 mb-2"
-            style={{ 
-              color: themeColor,
-              borderBottom: `2px solid ${themeColor}` 
-            }}
-          >
-            {section.title}
-          </h2>
-          <div className="space-y-4">
+        {data.personalInfo.summary && (
+          <div className="section-container">
+            <h2 className="professional-section-title">Professional Summary</h2>
+            <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }} />
+          </div>
+        )}
+
+        {data.sections.map((section) => (
+          <div key={section.id} className="section-container">
+            <h2 className="professional-section-title">{section.title}</h2>
             {section.items.map((item) => (
-              <div key={item.id}>
-                <div className="flex justify-between">
-                  <div>
-                    <h3 className="font-bold">{item.title}</h3>
-                    <p className="text-gray-700">{item.subtitle}</p>
-                  </div>
-                  {item.date && <p className="text-gray-600 text-sm">{item.date}</p>}
+              <div key={item.id} className="section-item">
+                <div className="section-item-header">
+                  <h3 className="section-item-title">{item.title}</h3>
+                  {item.date && <span className="date">{item.date}</span>}
                 </div>
+                {item.subtitle && (
+                  <div className="section-item-subtitle">
+                    {item.subtitle}
+                  </div>
+                )}
                 {item.description && (
-                  <div 
-                    className="text-sm mt-1 rich-text-content" 
-                    dangerouslySetInnerHTML={{ __html: item.description }} 
-                  />
+                  <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: item.description }} />
                 )}
               </div>
             ))}
           </div>
-        </div>
-      ))}
-
-      <style jsx global>{`
-        .rich-text-content ul, .rich-text-content ol {
-          list-style-position: outside;
-          padding-left: 1.5rem;
-          margin: 0.5rem 0;
-        }
-        
-        .rich-text-content ul {
-          list-style-type: disc;
-        }
-        
-        .rich-text-content ol {
-          list-style-type: decimal;
-        }
-        
-        .rich-text-content li {
-          margin: 0.25rem 0;
-          display: list-item;
-        }
-        
-        .rich-text-content a {
-          color: #2563eb; /* Blue color */
-          text-decoration: underline;
-          font-weight: bold;
-        }
-        
-        .rich-text-content strong, 
-        .rich-text-content b {
-          font-weight: bold;
-        }
-        
-        .rich-text-content em,
-        .rich-text-content i {
-          font-style: italic;
-        }
-        
-        .rich-text-content u {
-          text-decoration: underline;
-        }
-        
-        .rich-text-content s {
-          text-decoration: line-through;
-        }
-      `}</style>
+        ))}
+      </div>
     </div>
-  )
+  );
 }

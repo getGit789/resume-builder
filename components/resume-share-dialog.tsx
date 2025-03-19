@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Check, Copy, Share2, Globe, Lock } from "lucide-react";
+import { Check, Copy, Share2, Globe, Lock, ClipboardCopy, HelpCircle, AlertCircle } from "lucide-react";
 import { 
   Dialog, 
   DialogContent, 
@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Import Zustand stores
 import { useResumeStore } from "@/store/use-resume-store";
@@ -42,11 +43,15 @@ export default function ResumeShareDialog({
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isToggling, setIsToggling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Toggle sharing status
   const toggleSharing = async () => {
-    setIsLoading(true);
+    setIsToggling(true);
+    setError(null);
     try {
+      // Call the resume store's shareResume function
       const result = await shareResume(resumeId);
       
       if (!result) {
@@ -65,13 +70,14 @@ export default function ResumeShareDialog({
       });
     } catch (error) {
       console.error("Error toggling share status:", error);
+      setError(error instanceof Error ? error.message : "Failed to update sharing settings");
       toast({
         title: "Error",
         description: "Failed to update sharing settings",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setIsToggling(false);
     }
   };
 
@@ -101,6 +107,7 @@ export default function ResumeShareDialog({
   const handleOpenChange = async (newOpen: boolean) => {
     if (newOpen && !isLoading) {
       setIsLoading(true);
+      setError(null);
       try {
         const response = await fetch(`/api/resumes/${resumeId}/share`, {
           method: "GET",
@@ -114,92 +121,228 @@ export default function ResumeShareDialog({
             const shareUrl = `${window.location.origin}/share/${data.shareToken}`;
             setShareUrl(shareUrl);
           }
+        } else {
+          const errorText = await response.text();
+          console.error("Error response from share API:", errorText);
+          setError("Failed to fetch sharing status. Please try again.");
+          toast({
+            title: "Error",
+            description: "Failed to fetch sharing status",
+            variant: "destructive",
+          });
         }
       } catch (error) {
         console.error("Error fetching share status:", error);
+        setError(error instanceof Error ? error.message : "Failed to fetch sharing status");
+        toast({
+          title: "Error",
+          description: "Failed to fetch sharing status",
+          variant: "destructive",
+        });
       } finally {
         setIsLoading(false);
       }
+    } else if (!newOpen) {
+      // Reset error state when closing dialog
+      setError(null);
     }
     onOpenChange(newOpen);
   };
 
+  // Handle the sharing toggle in the dialog
+  const handleSharingToggle = async (newIsPublic: boolean) => {
+    if (newIsPublic === isPublic) return;
+    
+    setIsToggling(true);
+    setError(null);
+    try {
+      // Call the API directly with the new sharing state
+      const response = await fetch(`/api/resumes/${resumeId}/share`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ isPublic: newIsPublic }),
+      });
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error("Error response from share API:", errorText);
+        throw new Error("Failed to update sharing settings");
+      }
+      
+      const result = await response.json();
+      
+      if (!result || (newIsPublic && !result.shareToken)) {
+        throw new Error("Failed to update sharing settings");
+      }
+      
+      setIsPublic(newIsPublic);
+      
+      if (newIsPublic && result.shareToken) {
+        const shareUrl = `${window.location.origin}/share/${result.shareToken}`;
+        setShareUrl(shareUrl);
+        
+        toast({
+          title: "Resume shared",
+          description: "Your resume is now publicly accessible via link",
+        });
+      } else {
+        setShareUrl(null);
+        
+        toast({
+          title: "Sharing disabled",
+          description: "Your resume is no longer publicly accessible",
+        });
+      }
+    } catch (error) {
+      console.error("Error toggling share status:", error);
+      setError(error instanceof Error ? error.message : "Failed to update sharing settings");
+      toast({
+        title: "Error",
+        description: "Failed to update sharing settings",
+        variant: "destructive",
+      });
+    } finally {
+      setIsToggling(false);
+    }
+  };
+  
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Share Resume</DialogTitle>
           <DialogDescription>
-            Share "{resumeName}" with others via a public link
+            Allow others to view or copy your resume
           </DialogDescription>
         </DialogHeader>
         
-        <div className="flex items-center space-x-2 py-4">
-          <div className="grid flex-1 gap-2">
-            <Label htmlFor="share-toggle" className="font-medium">
-              {isPublic ? (
-                <div className="flex items-center text-primary">
-                  <Globe className="mr-2 h-4 w-4" />
-                  Public
-                </div>
-              ) : (
-                <div className="flex items-center">
-                  <Lock className="mr-2 h-4 w-4" />
-                  Private
-                </div>
-              )}
-            </Label>
-            <div className="text-sm text-muted-foreground">
-              {isPublic
-                ? "Anyone with the link can view this resume"
-                : "Only you can view this resume"}
+        <div className="space-y-4 py-2">
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4 mr-2" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="share-toggle" className="text-sm font-medium">
+                Share resume
+              </Label>
+              <span className="text-xs text-muted-foreground">
+                {isPublic 
+                  ? "Your resume is currently public and can be viewed by anyone with the link" 
+                  : "Make your resume public to share it with others"}
+              </span>
             </div>
+            <Switch 
+              id="share-toggle"
+              checked={isPublic}
+              onCheckedChange={handleSharingToggle}
+              disabled={isToggling || isLoading}
+            />
           </div>
-          <Switch
-            id="share-toggle"
-            checked={isPublic}
-            onCheckedChange={toggleSharing}
-            disabled={isLoading}
-          />
+          
+          {isPublic && shareUrl && (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="share-url" className="text-sm font-medium">
+                  Share link
+                </Label>
+                <div className="flex gap-2">
+                  <Input 
+                    id="share-url"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1"
+                    data-testid="share-url"
+                  />
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={copyToClipboard}
+                    disabled={isLoading || isToggling}
+                  >
+                    <ClipboardCopy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">
+                  Sharing Options
+                </Label>
+                <div className="space-y-2">
+                  <div className="flex flex-col gap-1 p-2 border rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium">View Only</h4>
+                        <p className="text-xs text-muted-foreground">Recipients can only view but not edit the resume</p>
+                      </div>
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          copyToClipboard();
+                          toast({
+                            title: "View-only link copied",
+                            description: "Anyone with this link can view your resume",
+                          });
+                        }}
+                        disabled={isLoading || isToggling}
+                      >
+                        <Share2 className="h-4 w-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col gap-1 p-2 border rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="text-sm font-medium">Duplicate</h4>
+                        <p className="text-xs text-muted-foreground">Recipients can make their own copy to edit</p>
+                      </div>
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const duplicateUrl = `${window.location.origin}/share/${shareUrl.split('/').pop()}?duplicate=true`;
+                          navigator.clipboard.writeText(duplicateUrl);
+                          toast({
+                            title: "Duplicate link copied",
+                            description: "Anyone with this link can create a copy of your resume",
+                          });
+                        }}
+                        disabled={isLoading || isToggling}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Share
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
         
-        {isPublic && shareUrl && (
-          <div className="flex items-center space-x-2">
-            <div className="grid flex-1 gap-2">
-              <Label htmlFor="share-link">Share link</Label>
-              <div className="flex items-center">
-                <Input
-                  id="share-link"
-                  value={shareUrl}
-                  readOnly
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className="ml-2"
-                  onClick={copyToClipboard}
-                >
-                  {copied ? (
-                    <Check className="h-4 w-4" />
-                  ) : (
-                    <Copy className="h-4 w-4" />
-                  )}
-                  <span className="sr-only">Copy</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-        
-        <DialogFooter className="sm:justify-start">
-          <Button
-            type="button"
-            variant="secondary"
-            className="mt-4"
-            onClick={() => onOpenChange(false)}
-          >
+        <DialogFooter className="sm:justify-between">
+          <Button variant="ghost" size="sm" asChild>
+            <a 
+              href="https://docs.example.com/sharing" 
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center"
+            >
+              <HelpCircle className="mr-1 h-4 w-4" />
+              <span>Sharing Help</span>
+            </a>
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => onOpenChange(false)}>
             Close
           </Button>
         </DialogFooter>

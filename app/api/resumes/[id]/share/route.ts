@@ -21,10 +21,81 @@ function getMockResume(id: string) {
   return null;
 }
 
+// GET handler to retrieve sharing status
+export async function GET(request: Request, { params }: RouteParams) {
+  try {
+    const id = params.id;
+    
+    // Try to get resume from database
+    try {
+      const resume = await prisma.resume.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          isPublic: true,
+          shareToken: true,
+        },
+      });
+      
+      if (!resume) {
+        // Check if this is a mock ID
+        const mockResume = getMockResume(id);
+        if (!mockResume) {
+          return NextResponse.json(
+            { error: 'Resume not found' },
+            { status: 404 }
+          );
+        }
+        
+        // Return mock data
+        return NextResponse.json(mockResume);
+      }
+      
+      return NextResponse.json({
+        id: resume.id,
+        isPublic: resume.isPublic || false,
+        shareToken: resume.shareToken || null,
+      });
+    } catch (findError) {
+      console.error('Error finding resume:', findError);
+      
+      // Check if this is a mock ID
+      const mockResume = getMockResume(id);
+      if (!mockResume) {
+        return NextResponse.json(
+          { error: 'Resume not found' },
+          { status: 404 }
+        );
+      }
+      
+      // Return mock data
+      return NextResponse.json(mockResume);
+    }
+  } catch (error) {
+    console.error(`Error getting share status for resume ${params.id}:`, error);
+    return NextResponse.json(
+      { error: 'Failed to get share status' },
+      { status: 500 }
+    );
+  }
+}
+
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    const { id } = params;
-    const { isPublic } = await request.json();
+    // Await params before destructuring
+    const id = params.id;
+    // Allow request with no body - toggle current state if no isPublic is provided
+    let isPublic = true;
+    
+    try {
+      const body = await request.json();
+      if (body && typeof body.isPublic === 'boolean') {
+        isPublic = body.isPublic;
+      }
+    } catch (e) {
+      // If no JSON body is provided, we'll toggle the current state
+      console.log('No JSON body provided, using default isPublic=true');
+    }
     
     // Check if resume exists
     try {
@@ -55,6 +126,12 @@ export async function POST(request: Request, { params }: RouteParams) {
           shareToken,
           shareUrl: shareToken ? `${process.env.NEXT_PUBLIC_APP_URL}/share/${shareToken}` : null,
         });
+      }
+      
+      // If isPublic wasn't explicitly provided, toggle the current state
+      if (request.headers.get('content-length') === '0' || 
+          request.headers.get('content-length') === null) {
+        isPublic = !existingResume.isPublic;
       }
       
       // Generate a new share token if making public and no token exists

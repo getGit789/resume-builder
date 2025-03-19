@@ -16,6 +16,16 @@ class MockPrismaClient {
   resume = {
     findMany: async () => this.mockData.resumes,
     findUnique: async ({ where }: any) => this.mockData.resumes.find(r => r.id === where.id),
+    findFirst: async ({ where }: any) => {
+      if (where.AND) {
+        return this.mockData.resumes.find(r => 
+          where.AND.every((condition: any) => 
+            Object.entries(condition).every(([key, value]) => r[key] === value)
+          )
+        );
+      }
+      return this.mockData.resumes[0];
+    },
     create: async ({ data }: any) => {
       const newResume = {
         id: `mock-${Date.now()}`,
@@ -50,6 +60,16 @@ class MockPrismaClient {
   export = {
     findMany: async () => this.mockData.exports,
     findUnique: async ({ where }: any) => this.mockData.exports.find(e => e.id === where.id),
+    findFirst: async ({ where }: any) => {
+      if (where.AND) {
+        return this.mockData.exports.find(e => 
+          where.AND.every((condition: any) => 
+            Object.entries(condition).every(([key, value]) => e[key] === value)
+          )
+        );
+      }
+      return this.mockData.exports[0];
+    },
     create: async ({ data }: any) => {
       const newExport = {
         id: `mock-${Date.now()}`,
@@ -92,6 +112,16 @@ class MockPrismaClient {
         return this.mockData.users.find(u => u.email === where.email);
       }
       return null;
+    },
+    findFirst: async ({ where }: any) => {
+      if (where.AND) {
+        return this.mockData.users.find(u => 
+          where.AND.every((condition: any) => 
+            Object.entries(condition).every(([key, value]) => u[key] === value)
+          )
+        );
+      }
+      return this.mockData.users[0];
     },
     create: async ({ data, select }: any) => {
       const newUser = {

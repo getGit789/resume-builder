@@ -1,4 +1,6 @@
 "use client"
+import { DndContext, DragEndEvent, DragStartEvent, useSensor, useSensors, PointerSensor, closestCenter } from "@dnd-kit/core"
+import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable"
 import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -6,174 +8,215 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { GripVertical, Pen, Plus, Trash2, FileText, Award, Users, Briefcase } from "lucide-react"
+import { GripVertical, Pen, Plus, Trash2, FileText, Award, Users, Briefcase, Sparkles } from "lucide-react"
 import { SimpleRichTextEditor } from "./simple-rich-text-editor"
 import { useState } from "react"
-
-interface Link {
-  id: string
-  title: string
-  url: string
-}
-
-interface PersonalInfo {
-  firstName: string
-  lastName: string
-  title: string
-  email: string
-  phone: string
-  location: string
-  summary: string
-  links: Link[]
-}
-
-interface ResumeItem {
-  id: string
-  title: string
-  subtitle: string
-  date: string
-  description: string
-}
-
-interface ResumeSection {
-  id: string
-  title: string
-  items: ResumeItem[]
-}
-
-interface ResumeData {
-  personalInfo: PersonalInfo
-  sections: ResumeSection[]
-}
+import { cn } from "@/lib/utils"
+import { motion, AnimatePresence } from "framer-motion"
+import { SortableSection } from "@/components/sortable-section"
+import { generateId } from "@/lib/utils"
+import { PersonalInfo, Resume, Section, SectionItem, Link } from "@/types/resume"
 
 interface ResumeEditorProps {
-  data: ResumeData
-  onChange: (data: ResumeData) => void
+  resume: Resume
+  onResumeChange: (resume: Resume) => void
 }
 
-// Helper function to generate stable IDs
-const generateId = (() => {
-  let counter = 0;
-  return (prefix: string) => `${prefix}-${counter++}`;
-})();
+export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorProps) {
+  const [activeId, setActiveId] = useState<string | null>(null)
+  const sensors = useSensors(useSensor(PointerSensor, {
+    activationConstraint: {
+      distance: 8,
+    },
+  }))
 
-export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
-  const handlePersonalInfoChange = (field: keyof PersonalInfo, value: string | Link[]) => {
-    onChange({
-      ...data,
-      personalInfo: {
-        ...data.personalInfo,
-        [field]: value,
+  function handlePersonalInfoChange(field: keyof PersonalInfo, value: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        personalInfo: {
+          ...resume.data.personalInfo,
+          [field]: value,
+        },
       },
     })
   }
 
-  const handleSectionChange = (sectionId: string, field: keyof ResumeSection, value: string) => {
-    const updatedSections = data.sections.map((section) => {
-      if (section.id === sectionId) {
-        return {
-          ...section,
-          [field]: value,
-        }
-      }
-      return section
-    })
-
-    onChange({
-      ...data,
-      sections: updatedSections,
+  function handleLinkChange(linkId: string, field: keyof Link, value: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        personalInfo: {
+          ...resume.data.personalInfo,
+          links: resume.data.personalInfo.links.map((link) =>
+            link.id === linkId ? { ...link, [field]: value } : link
+          ),
+        },
+      },
     })
   }
 
-  const handleItemChange = (sectionId: string, itemId: string, field: keyof ResumeItem, value: string) => {
-    const updatedSections = data.sections.map((section) => {
-      if (section.id === sectionId) {
-        const updatedItems = section.items.map((item) => {
-          if (item.id === itemId) {
-            return {
-              ...item,
-              [field]: value,
-            }
-          }
-          return item
-        })
-
-        return {
-          ...section,
-          items: updatedItems,
-        }
-      }
-      return section
-    })
-
-    onChange({
-      ...data,
-      sections: updatedSections,
+  function handleAddLink() {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        personalInfo: {
+          ...resume.data.personalInfo,
+          links: [
+            ...resume.data.personalInfo.links,
+            { id: generateId(), title: "", url: "" },
+          ],
+        },
+      },
     })
   }
 
-  const addItem = (sectionId: string) => {
-    const updatedSections = data.sections.map((section) => {
-      if (section.id === sectionId) {
-        const newItem = {
-          id: generateId('item'),
-          title: "",
-          subtitle: "",
-          date: "",
-          description: "",
-        }
-
-        return {
-          ...section,
-          items: [...section.items, newItem],
-        }
-      }
-      return section
-    })
-
-    onChange({
-      ...data,
-      sections: updatedSections,
+  function handleRemoveLink(linkId: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        personalInfo: {
+          ...resume.data.personalInfo,
+          links: resume.data.personalInfo.links.filter((link) => link.id !== linkId),
+        },
+      },
     })
   }
 
-  const removeItem = (sectionId: string, itemId: string) => {
-    const updatedSections = data.sections.map((section) => {
-      if (section.id === sectionId) {
-        return {
-          ...section,
-          items: section.items.filter((item) => item.id !== itemId),
-        }
-      }
-      return section
-    })
-
-    onChange({
-      ...data,
-      sections: updatedSections,
+  function handleSectionTitleChange(sectionId: string, title: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: resume.data.sections.map((section) =>
+          section.id === sectionId ? { ...section, title } : section
+        ),
+      },
     })
   }
 
-  const addSection = (sectionType: string) => {
-    const newSection: ResumeSection = {
-      id: generateId('section'),
-      title: sectionType,
+  function handleAddSection() {
+    const newSection: Section = {
+      id: generateId(),
+      title: "New Section",
       items: [],
     }
 
-    onChange({
-      ...data,
-      sections: [...data.sections, newSection],
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: [...resume.data.sections, newSection],
+      },
     })
   }
 
+  function handleRemoveSection(sectionId: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: resume.data.sections.filter((section) => section.id !== sectionId),
+      },
+    })
+  }
+
+  function handleAddItem(sectionId: string) {
+    const newItem: SectionItem = {
+      id: generateId(),
+      title: "",
+      subtitle: "",
+      date: "",
+      description: "",
+    }
+
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: resume.data.sections.map((section) =>
+          section.id === sectionId
+            ? { ...section, items: [...section.items, newItem] }
+            : section
+        ),
+      },
+    })
+  }
+
+  function handleItemChange(sectionId: string, itemId: string, field: keyof SectionItem, value: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: resume.data.sections.map((section) =>
+          section.id === sectionId
+            ? {
+                ...section,
+                items: section.items.map((item) =>
+                  item.id === itemId ? { ...item, [field]: value } : item
+                ),
+              }
+            : section
+        ),
+      },
+    })
+  }
+
+  function handleRemoveItem(sectionId: string, itemId: string) {
+    onResumeChange({
+      ...resume,
+      data: {
+        ...resume.data,
+        sections: resume.data.sections.map((section) =>
+          section.id === sectionId
+            ? {
+                ...section,
+                items: section.items.filter((item) => item.id !== itemId),
+              }
+            : section
+        ),
+      },
+    })
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(event.active.id as string)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+
+    if (over && active.id !== over.id) {
+      onResumeChange({
+        ...resume,
+        data: {
+          ...resume.data,
+          sections: arrayMove(
+            resume.data.sections,
+            resume.data.sections.findIndex((section) => section.id === active.id),
+            resume.data.sections.findIndex((section) => section.id === over.id)
+          ),
+        },
+      })
+    }
+
+    setActiveId(null)
+  }
+
   return (
-    <div className="space-y-6 p-6 max-w-3xl mx-auto bg-background">
-      <Card>
-        <CardHeader className="bg-muted/40">
-          <CardTitle className="text-xl font-semibold">Personal Information</CardTitle>
+    <div className="space-y-8 p-6 max-w-3xl mx-auto bg-background">
+      <Card className="border-2 border-primary/10 shadow-sm hover:border-primary/20 transition-all duration-200">
+        <CardHeader className="bg-primary/5 border-b border-primary/10">
+          <CardTitle className="text-xl font-semibold flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Personal Information
+          </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4 p-6">
+        <CardContent className="space-y-6 p-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <label htmlFor="firstName" className="text-sm font-medium">
@@ -181,7 +224,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               </label>
               <Input
                 id="firstName"
-                value={data.personalInfo.firstName}
+                value={resume.data.personalInfo.firstName}
                 onChange={(e) => handlePersonalInfoChange("firstName", e.target.value)}
                 suppressHydrationWarning
               />
@@ -192,7 +235,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               </label>
               <Input
                 id="lastName"
-                value={data.personalInfo.lastName}
+                value={resume.data.personalInfo.lastName}
                 onChange={(e) => handlePersonalInfoChange("lastName", e.target.value)}
                 suppressHydrationWarning
               />
@@ -204,7 +247,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
             </label>
             <Input
               id="title"
-              value={data.personalInfo.title}
+              value={resume.data.personalInfo.title}
               onChange={(e) => handlePersonalInfoChange("title", e.target.value)}
               suppressHydrationWarning
             />
@@ -224,7 +267,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                     <Input
                       id="email"
                       type="email"
-                      value={data.personalInfo.email}
+                      value={resume.data.personalInfo.email}
                       onChange={(e) => handlePersonalInfoChange("email", e.target.value)}
                       suppressHydrationWarning
                     />
@@ -235,7 +278,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                     </label>
                     <Input
                       id="phone"
-                      value={data.personalInfo.phone}
+                      value={resume.data.personalInfo.phone}
                       onChange={(e) => handlePersonalInfoChange("phone", e.target.value)}
                       suppressHydrationWarning
                     />
@@ -246,7 +289,7 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                     </label>
                     <Input
                       id="location"
-                      value={data.personalInfo.location}
+                      value={resume.data.personalInfo.location}
                       onChange={(e) => handlePersonalInfoChange("location", e.target.value)}
                       suppressHydrationWarning
                     />
@@ -262,13 +305,13 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
               <AccordionContent>
                 <div className="space-y-2 pt-2">
                   <SimpleRichTextEditor
-                    value={data.personalInfo.summary}
+                    value={resume.data.personalInfo.summary}
                     onChange={(value) => handlePersonalInfoChange("summary", value)}
                     placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
                     showCharacterCount
                     characterLimit={400}
                     aiSuggestionType="summary"
-                    jobTitle={data.personalInfo.title}
+                    jobTitle={resume.data.personalInfo.title}
                   />
                 </div>
               </AccordionContent>
@@ -284,54 +327,33 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        const newLinks: Link[] = [
-                          ...(data.personalInfo.links || []),
-                          {
-                            id: generateId('link'),
-                            title: "",
-                            url: "",
-                          },
-                        ]
-                        handlePersonalInfoChange("links", newLinks)
-                      }}
+                      onClick={handleAddLink}
                       suppressHydrationWarning
                     >
                       <Plus className="h-4 w-4 mr-2" /> Add Link
                     </Button>
                   </div>
 
-                  {data.personalInfo.links && data.personalInfo.links.length > 0 ? (
+                  {resume.data.personalInfo.links && resume.data.personalInfo.links.length > 0 ? (
                     <div className="space-y-3">
-                      {data.personalInfo.links.map((link, index) => (
+                      {resume.data.personalInfo.links.map((link, index) => (
                         <div key={link.id} className="flex items-center gap-2">
                           <Input
                             placeholder="Title (e.g. LinkedIn)"
                             value={link.title}
-                            onChange={(e) => {
-                              const newLinks = [...data.personalInfo.links]
-                              newLinks[index] = { ...link, title: e.target.value }
-                              handlePersonalInfoChange("links", newLinks)
-                            }}
+                            onChange={(e) => handleLinkChange(link.id, "title", e.target.value)}
                             className="flex-1"
                           />
                           <Input
                             placeholder="URL (e.g. https://linkedin.com/in/...)"
                             value={link.url}
-                            onChange={(e) => {
-                              const newLinks = [...data.personalInfo.links]
-                              newLinks[index] = { ...link, url: e.target.value }
-                              handlePersonalInfoChange("links", newLinks)
-                            }}
+                            onChange={(e) => handleLinkChange(link.id, "url", e.target.value)}
                             className="flex-1"
                           />
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => {
-                              const newLinks = data.personalInfo.links.filter((_, i) => i !== index)
-                              handlePersonalInfoChange("links", newLinks)
-                            }}
+                            onClick={() => handleRemoveLink(link.id)}
                             suppressHydrationWarning
                           >
                             <Trash2 className="h-4 w-4 text-destructive" />
@@ -351,199 +373,81 @@ export default function ResumeEditor({ data, onChange }: ResumeEditorProps) {
         </CardContent>
       </Card>
 
-      {data.sections.map((section) => (
-        <SortableSection
-          key={section.id}
-          section={section}
-          onSectionChange={handleSectionChange}
-          onItemChange={handleItemChange}
-          onAddItem={addItem}
-          onRemoveItem={removeItem}
-          jobTitle={data.personalInfo.title}
-        />
-      ))}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={resume.data.sections.map(s => s.id)} strategy={verticalListSortingStrategy}>
+          <AnimatePresence>
+            {resume.data.sections.map((section) => (
+              <motion.div
+                key={section.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.2 }}
+              >
+                <SortableSection
+                  section={section}
+                  isActive={section.id === activeId}
+                  onTitleChange={(value) => handleSectionTitleChange(section.id, value)}
+                  onAddItem={() => handleAddItem(section.id)}
+                  onRemoveSection={() => handleRemoveSection(section.id)}
+                  onItemChange={(itemId, field, value) =>
+                    handleItemChange(section.id, itemId, field as keyof SectionItem, value)
+                  }
+                  onRemoveItem={(itemId) => handleRemoveItem(section.id, itemId)}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </SortableContext>
+      </DndContext>
 
-      <Card>
-        <CardHeader className="bg-muted/40">
+      <Card className="border-2 border-primary/10 shadow-sm hover:border-primary/20 transition-all duration-200">
+        <CardHeader className="bg-primary/5 border-b border-primary/10">
           <CardTitle className="text-xl font-semibold">Add Section</CardTitle>
         </CardHeader>
         <CardContent className="p-6">
           <div className="grid grid-cols-2 gap-4">
             <Button 
               variant="outline" 
-              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
-              onClick={() => addSection("Custom Section")}
-              suppressHydrationWarning
+              className="group h-auto py-6 px-4 flex flex-col items-center justify-center gap-3 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={handleAddSection}
             >
-              <FileText className="h-6 w-6 text-primary" />
-              <span>Custom Section</span>
+              <FileText className="h-8 w-8 text-primary group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Custom Section</span>
             </Button>
             
             <Button 
               variant="outline" 
-              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
-              onClick={() => addSection("Affiliations")}
-              suppressHydrationWarning
+              className="group h-auto py-6 px-4 flex flex-col items-center justify-center gap-3 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={() => handleAddSection()}
             >
-              <Users className="h-6 w-6 text-primary" />
-              <span>Affiliations</span>
+              <Users className="h-8 w-8 text-primary group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Affiliations</span>
             </Button>
             
             <Button 
               variant="outline" 
-              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
-              onClick={() => addSection("Licenses & Certifications")}
-              suppressHydrationWarning
+              className="group h-auto py-6 px-4 flex flex-col items-center justify-center gap-3 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={() => handleAddSection()}
             >
-              <Award className="h-6 w-6 text-primary" />
-              <span>Licenses & Certifications</span>
+              <Award className="h-8 w-8 text-primary group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Licenses & Certifications</span>
             </Button>
             
             <Button 
               variant="outline" 
-              className="h-auto py-4 px-4 flex flex-col items-center justify-center gap-2 hover:bg-muted/50"
-              onClick={() => addSection("Internships")}
-              suppressHydrationWarning
+              className="group h-auto py-6 px-4 flex flex-col items-center justify-center gap-3 hover:bg-primary/5 hover:border-primary/30 transition-all duration-200"
+              onClick={() => handleAddSection()}
             >
-              <Briefcase className="h-6 w-6 text-primary" />
-              <span>Internships</span>
+              <Briefcase className="h-8 w-8 text-primary group-hover:scale-110 transition-transform duration-200" />
+              <span className="font-medium">Internships</span>
             </Button>
           </div>
-        </CardContent>
-      </Card>
-    </div>
-  )
-}
-
-interface SortableSectionProps {
-  section: ResumeSection
-  onSectionChange: (sectionId: string, field: keyof ResumeSection, value: string) => void
-  onItemChange: (sectionId: string, itemId: string, field: keyof ResumeItem, value: string) => void
-  onAddItem: (sectionId: string) => void
-  onRemoveItem: (sectionId: string, itemId: string) => void
-  jobTitle: string
-}
-
-function SortableSection({ section, onSectionChange, onItemChange, onAddItem, onRemoveItem, jobTitle }: SortableSectionProps) {
-  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: section.id })
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-  }
-
-  return (
-    <div ref={setNodeRef} style={style} className="relative">
-      <Card>
-        <CardHeader className="flex flex-row items-center">
-          <div {...attributes} {...listeners} className="cursor-grab p-2 mr-2 rounded hover:bg-muted">
-            <GripVertical className="h-5 w-5 text-muted-foreground" />
-          </div>
-          <div className="flex-1 flex items-center gap-2">
-            <Input
-              value={section.title}
-              onChange={(e) => onSectionChange(section.id, "title", e.target.value)}
-              className="font-bold text-lg border-none p-0 h-auto focus-visible:ring-0"
-              placeholder="Section Title"
-            />
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => onAddItem(section.id)}
-                suppressHydrationWarning
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={() => {
-                  const input = document.querySelector(`[value="${section.title}"]`) as HTMLInputElement
-                  if (input) input.focus()
-                }}
-                suppressHydrationWarning
-              >
-                <Pen className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Accordion type="multiple" defaultValue={[]}>
-            {section.items.map((item) => (
-              <AccordionItem key={item.id} value={item.id}>
-                <AccordionTrigger className="hover:no-underline">
-                  <span className="text-left font-normal">{item.title || "Untitled Item"}</span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 pt-2">
-                    <div className="space-y-2">
-                      <label htmlFor={`${item.id}-title`} className="text-sm font-medium">
-                        Title
-                      </label>
-                      <Input
-                        id={`${item.id}-title`}
-                        value={item.title}
-                        onChange={(e) => onItemChange(section.id, item.id, "title", e.target.value)}
-                        suppressHydrationWarning
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor={`${item.id}-subtitle`} className="text-sm font-medium">
-                        Subtitle
-                      </label>
-                      <Input
-                        id={`${item.id}-subtitle`}
-                        value={item.subtitle}
-                        onChange={(e) => onItemChange(section.id, item.id, "subtitle", e.target.value)}
-                        suppressHydrationWarning
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor={`${item.id}-date`} className="text-sm font-medium">
-                        Date
-                      </label>
-                      <Input
-                        id={`${item.id}-date`}
-                        value={item.date}
-                        onChange={(e) => onItemChange(section.id, item.id, "date", e.target.value)}
-                        suppressHydrationWarning
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label htmlFor={`${item.id}-description`} className="text-base font-semibold">
-                        Description
-                      </label>
-                      <SimpleRichTextEditor
-                        value={item.description}
-                        onChange={(value) => onItemChange(section.id, item.id, "description", value)}
-                        placeholder="Describe your responsibilities, achievements, and key contributions..."
-                        showCharacterCount={false}
-                        characterLimit={400}
-                        aiSuggestionType="description"
-                        jobTitle={jobTitle}
-                      />
-                    </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => onRemoveItem(section.id, item.id)}
-                      className="mt-2"
-                      suppressHydrationWarning
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" /> Remove Item
-                    </Button>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-          <Button variant="outline" size="sm" onClick={() => onAddItem(section.id)} className="w-full" suppressHydrationWarning>
-            <Plus className="h-4 w-4 mr-2" /> Add Item
-          </Button>
         </CardContent>
       </Card>
     </div>

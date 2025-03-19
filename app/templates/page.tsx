@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { ProfessionalTemplate } from "@/components/templates/professional"
 import { MinimalistTemplate } from "@/components/templates/minimalist"
-import { ModernTemplate } from "@/components/templates/modern"
 import { defaultResumeData } from "@/lib/default-data"
 
 export default function TemplatesPage() {
@@ -38,7 +37,7 @@ export default function TemplatesPage() {
                 </p>
               </div>
             </div>
-            <div className="mx-auto grid max-w-5xl gap-8 py-12 md:grid-cols-2 lg:grid-cols-3">
+            <div className="mx-auto grid max-w-5xl gap-8 py-12 md:grid-cols-2">
               <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle>Professional</CardTitle>
@@ -70,24 +69,6 @@ export default function TemplatesPage() {
                 </CardContent>
                 <CardFooter className="p-4">
                   <Link href="/builder?template=minimalist" className="w-full">
-                    <Button className="w-full">Use Template</Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-
-              <Card className="overflow-hidden">
-                <CardHeader>
-                  <CardTitle>Modern</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  <div className="aspect-[3/4] overflow-hidden border-t border-b">
-                    <div className="h-full w-full p-4 transform scale-[0.6] origin-top">
-                      <ModernTemplate data={defaultResumeData} />
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="p-4">
-                  <Link href="/builder?template=modern" className="w-full">
                     <Button className="w-full">Use Template</Button>
                   </Link>
                 </CardFooter>

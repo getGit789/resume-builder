@@ -2,10 +2,10 @@ import type { Metadata } from 'next'
 import { Inter, Open_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/theme-provider'
-import { SiteHeader } from '@/components/site-header'
 import { Toaster } from '@/components/ui/toaster'
 import { Providers } from '@/components/providers'
 import { NextAuthProvider } from '@/components/auth/next-auth-provider'
+import { Header } from '@/components/header'
 
 // Load fonts with Next.js
 const inter = Inter({ 
@@ -28,9 +28,9 @@ export const metadata: Metadata = {
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${openSans.variable} light`}>
       <body className={inter.className} suppressHydrationWarning>
@@ -42,7 +42,7 @@ export default function RootLayout({
               enableSystem={false}
               disableTransitionOnChange
             >
-              <SiteHeader />
+              <Header />
               <main>{children}</main>
               <Toaster />
             </ThemeProvider>

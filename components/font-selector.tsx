@@ -43,9 +43,14 @@ export const FONT_FAMILY_MAP: Record<string, string> = {
 interface FontSelectorProps {
   value: string
   onValueChange: (value: string) => void
+  displayText?: string
 }
 
-export function FontSelector({ value, onValueChange }: FontSelectorProps) {
+export function FontSelector({ 
+  value, 
+  onValueChange,
+  displayText = "Font"
+}: FontSelectorProps) {
   const [mounted, setMounted] = useState(false)
   
   useEffect(() => {
@@ -75,8 +80,8 @@ export function FontSelector({ value, onValueChange }: FontSelectorProps) {
         value={displayValue}
         onValueChange={handleValueChange}
       >
-        <SelectTrigger className="w-[140px]">
-          <SelectValue placeholder="Select font" />
+        <SelectTrigger className="h-9 w-[130px]">
+          <SelectValue>{displayText}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {FONTS.map((font) => (
@@ -87,7 +92,6 @@ export function FontSelector({ value, onValueChange }: FontSelectorProps) {
               style={{ fontFamily: FONT_FAMILY_MAP[font] }}
             >
               <span>{font}</span>
-              {displayValue === font && <Check className="h-4 w-4 ml-2" />}
             </SelectItem>
           ))}
         </SelectContent>

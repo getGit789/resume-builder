@@ -41,24 +41,36 @@ const professionalSummaries: SummaryData = {
 
 const jobDescriptions: DescriptionData = {
   "Software Engineer": [
-    "• Developed and maintained web applications using React, TypeScript, and Node.js\n• Collaborated with cross-functional teams to define, design, and ship new features\n• Implemented responsive design and ensured cross-browser compatibility\n• Optimized applications for maximum speed and scalability\n• Participated in code reviews and provided constructive feedback to other developers",
-    "• Architected and implemented scalable backend services using Node.js and Express\n• Built and maintained RESTful APIs and microservices\n• Improved application performance by optimizing database queries and implementing caching\n• Wrote unit and integration tests to ensure code quality\n• Mentored junior developers and participated in agile development processes"
+    "Develop and maintain web applications using modern JavaScript frameworks",
+    "Write clean, maintainable, and efficient code",
+    "Collaborate with cross-functional teams to define and implement new features",
+    "Optimize applications for maximum speed and scalability",
+    "Participate in code reviews and provide constructive feedback"
   ],
   "Product Manager": [
-    "• Led product development from concept to launch, resulting in 30% revenue growth\n• Conducted market research and competitive analysis to identify opportunities\n• Created product roadmaps and prioritized features based on business impact\n• Collaborated with engineering and design teams to deliver high-quality products\n• Analyzed user feedback and metrics to inform product decisions",
-    "• Managed the entire product lifecycle from strategic planning to tactical activities\n• Gathered and prioritized product requirements from stakeholders and customers\n• Defined product vision, strategy, and roadmap aligned with company goals\n• Worked closely with engineering teams to deliver features on time and within budget\n• Monitored product performance and made data-driven decisions for improvements"
+    "Define product vision and strategy",
+    "Gather and analyze user feedback and market research",
+    "Work with engineering teams to deliver high-quality products",
+    "Prioritize features and create product roadmaps",
+    "Track and measure product performance metrics"
   ],
   "Marketing Specialist": [
     "• Developed and executed digital marketing campaigns across multiple channels\n• Created engaging content for social media, email, and website\n• Analyzed campaign performance and optimized for improved results\n• Managed SEO strategy resulting in 40% increase in organic traffic\n• Collaborated with design team to create compelling marketing materials",
     "• Planned and implemented marketing strategies to support business objectives\n• Managed social media accounts, increasing follower engagement by 50%\n• Created and distributed email newsletters with 25% above-industry open rates\n• Conducted market research to identify trends and opportunities\n• Tracked and reported on key performance metrics to stakeholders"
   ],
   "Data Scientist": [
-    "• Built predictive models using machine learning algorithms to forecast business trends\n• Cleaned and preprocessed large datasets for analysis\n• Developed data visualization dashboards to communicate insights to stakeholders\n• Collaborated with cross-functional teams to implement data-driven solutions\n• Conducted A/B tests to optimize business processes",
-    "• Analyzed complex datasets to identify patterns and trends\n• Developed and deployed machine learning models to solve business problems\n• Created automated data pipelines for efficient data processing\n• Presented findings and recommendations to non-technical stakeholders\n• Collaborated with engineering teams to implement models in production"
+    "Analyze complex data sets to drive business decisions",
+    "Build and deploy machine learning models",
+    "Create data visualizations and reports",
+    "Collaborate with stakeholders to understand business needs",
+    "Develop and maintain data pipelines"
   ],
   "UX Designer": [
-    "• Conducted user research through interviews, surveys, and usability testing\n• Created wireframes, prototypes, and user flows for web and mobile applications\n• Collaborated with product managers to align designs with business requirements\n• Worked closely with developers to ensure design implementation accuracy\n• Iterated designs based on user feedback and analytics",
-    "• Designed intuitive user interfaces for complex web applications\n• Created and maintained design systems to ensure consistency across products\n• Conducted usability testing and incorporated feedback into design iterations\n• Collaborated with cross-functional teams throughout the product development lifecycle\n• Advocated for user-centered design principles within the organization"
+    "Create user-centered designs for digital products",
+    "Conduct user research and usability testing",
+    "Design wireframes, prototypes, and high-fidelity mockups",
+    "Collaborate with developers to ensure design implementation",
+    "Create and maintain design systems"
   ]
 };
 
@@ -85,33 +97,33 @@ const skillSuggestions: SkillsData = {
   ]
 };
 
-export async function POST(request: Request) {
+export async function POST(req: Request) {
   try {
-    const { type, jobTitle } = await request.json();
+    const { role, section } = await req.json();
     
-    // Default to Software Engineer if no job title is provided or if the job title is not in our list
-    const normalizedJobTitle = isValidJobTitle(jobTitle) ? jobTitle : "Software Engineer";
-    
-    let suggestions: string[] | string[][] = [];
-    
-    switch (type) {
-      case 'summary':
-        suggestions = professionalSummaries[normalizedJobTitle];
-        break;
-      case 'description':
-        suggestions = jobDescriptions[normalizedJobTitle];
-        break;
-      case 'skills':
-        suggestions = skillSuggestions[normalizedJobTitle];
-        break;
-      default:
-        return NextResponse.json({ error: 'Invalid suggestion type' }, { status: 400 });
+    if (!role || !section) {
+      return NextResponse.json(
+        { error: "Role and section are required" },
+        { status: 400 }
+      );
     }
+
+    const descriptions = jobDescriptions[role as keyof typeof jobDescriptions];
     
-    return NextResponse.json({ suggestions });
+    if (!descriptions) {
+      return NextResponse.json(
+        { error: "Role not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ suggestions: descriptions });
   } catch (error) {
-    console.error('AI suggestion error:', error);
-    return NextResponse.json({ error: 'Failed to generate suggestions' }, { status: 500 });
+    console.error("AI suggestions error:", error);
+    return NextResponse.json(
+      { error: "Failed to generate suggestions" },
+      { status: 500 }
+    );
   }
 }
 

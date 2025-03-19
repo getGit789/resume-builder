@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -18,38 +18,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-
-interface ResumeData {
-  personalInfo: {
-    firstName: string;
-    lastName: string;
-    title: string;
-    email: string;
-    phone: string;
-    location: string;
-    summary: string;
-    links: {
-      id: string;
-      title: string;
-      url: string;
-    }[];
-  };
-  sections: {
-    id: string;
-    title: string;
-    items: {
-      id: string;
-      title: string;
-      subtitle: string;
-      date: string;
-      description: string;
-    }[];
-  }[];
-}
-
-interface ATSCheckerProps {
-  resumeData: ResumeData;
-}
+import type { ResumeData } from "@/types"
 
 interface CheckResult {
   score: number;
@@ -67,37 +36,158 @@ interface KeywordAnalysisResult {
   score: number;
 }
 
-export function ATSChecker({ resumeData }: ATSCheckerProps) {
-  const [result, setResult] = useState<CheckResult | null>(null);
-  const [keywordResult, setKeywordResult] = useState<KeywordAnalysisResult | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("general");
-  const [jobDescription, setJobDescription] = useState("");
+interface ATSScore {
+  score: number
+  issues: string[]
+  suggestions: string[]
+  keywords: string[]
+}
 
-  const checkResume = () => {
-    setIsChecking(true);
+export function ATSChecker({ resumeData }: { resumeData: ResumeData }) {
+  const [score, setScore] = useState<ATSScore | null>(null)
+  const [isAnalyzing, setIsAnalyzing] = useState(true)
+  const [isOpen, setIsOpen] = useState(false)
+  const [activeTab, setActiveTab] = useState("general")
+  const [jobDescription, setJobDescription] = useState("")
+
+  useEffect(() => {
+    analyzeResume(resumeData)
+  }, [resumeData])
+
+  const analyzeResume = async (data: ResumeData) => {
+    setIsAnalyzing(true)
     
-    // Simulate API call or processing time
-    setTimeout(() => {
-      const checkResult = analyzeResume(resumeData);
-      setResult(checkResult);
-      setIsChecking(false);
-    }, 1500);
-  };
+    // Simulate analysis delay
+    await new Promise(resolve => setTimeout(resolve, 1500))
+    
+    const issues: string[] = []
+    const suggestions: string[] = []
+    const keywords: string[] = []
+    let scoreValue = 100
+    
+    // Check personal info
+    if (!data.personalInfo.email) {
+      issues.push("Missing email address")
+      scoreValue -= 10
+    }
+    if (!data.personalInfo.phone) {
+      issues.push("Missing phone number")
+      scoreValue -= 5
+    }
+    if (!data.personalInfo.location) {
+      issues.push("Missing location")
+      scoreValue -= 5
+    }
+    
+    // Check summary
+    if (!data.personalInfo.summary) {
+      issues.push("Missing professional summary")
+      scoreValue -= 10
+      suggestions.push("Add a professional summary highlighting your key qualifications")
+    } else if (data.personalInfo.summary.length < 100) {
+      issues.push("Professional summary is too short")
+      scoreValue -= 5
+      suggestions.push("Expand your professional summary to 100-200 characters")
+    }
+    
+    // Check work experience
+    const experienceSection = data.sections.find(s => 
+      s.title.toLowerCase().includes("experience") ||
+      s.title.toLowerCase().includes("work")
+    )
+    
+    if (!experienceSection) {
+      issues.push("Missing work experience section")
+      scoreValue -= 15
+      suggestions.push("Add a work experience section with your employment history")
+    } else {
+      if (experienceSection.items.length === 0) {
+        issues.push("Work experience section is empty")
+        scoreValue -= 10
+      }
+      
+      experienceSection.items.forEach(item => {
+        if (!item.date) {
+          issues.push(`Missing dates for position: ${item.title}`)
+          scoreValue -= 5
+        }
+        if (!item.description) {
+          issues.push(`Missing description for position: ${item.title}`)
+          scoreValue -= 5
+        }
+        
+        // Extract keywords from descriptions
+        const description = item.description.toLowerCase()
+        const commonKeywords = [
+          "managed", "developed", "created", "implemented", "led",
+          "increased", "decreased", "improved", "achieved", "launched",
+          "coordinated", "designed", "built", "analyzed", "resolved"
+        ]
+        
+        commonKeywords.forEach(keyword => {
+          if (description.includes(keyword) && !keywords.includes(keyword)) {
+            keywords.push(keyword)
+          }
+        })
+      })
+    }
+    
+    // Check education
+    const educationSection = data.sections.find(s => 
+      s.title.toLowerCase().includes("education")
+    )
+    
+    if (!educationSection) {
+      issues.push("Missing education section")
+      scoreValue -= 10
+      suggestions.push("Add an education section with your academic background")
+    }
+    
+    // Check skills
+    const skillsSection = data.sections.find(s => 
+      s.title.toLowerCase().includes("skills")
+    )
+    
+    if (!skillsSection) {
+      issues.push("Missing skills section")
+      scoreValue -= 10
+      suggestions.push("Add a skills section highlighting your technical and soft skills")
+    }
+    
+    // Add general suggestions
+    if (scoreValue < 90) {
+      suggestions.push("Use industry-standard section titles (Experience, Education, Skills)")
+    }
+    if (keywords.length < 5) {
+      suggestions.push("Include more action verbs and measurable achievements")
+    }
+    
+    setScore({
+      score: Math.max(0, scoreValue),
+      issues,
+      suggestions,
+      keywords
+    })
+    setIsAnalyzing(false)
+  }
 
   const analyzeKeywords = () => {
     if (!jobDescription.trim()) {
       return;
     }
     
-    setIsChecking(true);
+    setIsAnalyzing(true);
     
     // Simulate API call or processing time
     setTimeout(() => {
       const keywordResult = analyzeKeywordMatch(resumeData, jobDescription);
-      setKeywordResult(keywordResult);
-      setIsChecking(false);
+      setScore({
+        score: keywordResult.score,
+        issues: [],
+        suggestions: [],
+        keywords: keywordResult.matchedKeywords
+      });
+      setIsAnalyzing(false);
     }, 1500);
   };
 
@@ -118,8 +208,7 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                 variant="ghost" 
                 size="icon" 
                 onClick={() => {
-                  setResult(null);
-                  setKeywordResult(null);
+                  setScore(null);
                   setIsOpen(false);
                 }}
                 className="h-8 w-8"
@@ -147,7 +236,7 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
             <div className="px-6 py-4">
               {activeTab === "general" && (
                 <div className="space-y-4">
-                  {!result && !isChecking && (
+                  {!score && !isAnalyzing && (
                     <div className="flex flex-col items-center justify-center py-8">
                       <div className="mb-4 text-center">
                         <h3 className="text-lg font-medium">Ready to check your resume</h3>
@@ -155,13 +244,13 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                           We'll analyze your resume for ATS compatibility and provide suggestions for improvement.
                         </p>
                       </div>
-                      <Button onClick={checkResume}>
+                      <Button onClick={() => analyzeResume(resumeData)}>
                         Start Analysis
                       </Button>
                     </div>
                   )}
                   
-                  {isChecking && (
+                  {isAnalyzing && (
                     <div className="flex flex-col items-center justify-center py-8">
                       <div className="animate-spin mb-4">
                         <Search className="h-8 w-8 text-primary" />
@@ -173,13 +262,13 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                     </div>
                   )}
                   
-                  {result && (
+                  {score && (
                     <div className="space-y-4">
                       <div className="text-center">
                         <h3 className="text-lg font-medium mb-2">ATS Compatibility Score</h3>
                         <div className="relative w-32 h-32 mx-auto">
                           <div className="absolute inset-0 flex items-center justify-center">
-                            <span className="text-3xl font-bold">{result.score}%</span>
+                            <span className="text-3xl font-bold">{score.score}%</span>
                           </div>
                           <svg className="w-full h-full" viewBox="0 0 100 100">
                             <circle 
@@ -195,22 +284,22 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                               cy="50" 
                               r="45" 
                               fill="none" 
-                              stroke={result.score >= 80 ? "#10b981" : result.score >= 60 ? "#f59e0b" : "#ef4444"} 
+                              stroke={score.score >= 80 ? "#10b981" : "#ef4444"} 
                               strokeWidth="10" 
-                              strokeDasharray={`${result.score * 2.83} 283`} 
+                              strokeDasharray={`${score.score * 2.83} 283`} 
                               strokeDashoffset="0" 
                               transform="rotate(-90 50 50)" 
                             />
                           </svg>
                         </div>
                         <div className="mt-2">
-                          <Badge variant={result.score >= 80 ? "success" : result.score >= 60 ? "warning" : "destructive"}>
-                            {result.score >= 80 ? "Excellent" : result.score >= 60 ? "Good" : "Needs Improvement"}
+                          <Badge variant={score.score >= 80 ? "success" : "destructive"}>
+                            {score.score}%
                           </Badge>
                         </div>
                       </div>
                       
-                      {result.issues.length > 0 && (
+                      {score.issues.length > 0 && (
                         <Card>
                           <CardHeader>
                             <CardTitle className="text-base">Issues to Address</CardTitle>
@@ -220,20 +309,13 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                           </CardHeader>
                           <CardContent>
                             <ul className="space-y-3">
-                              {result.issues.map((issue, index) => (
+                              {score.issues.map((issue, index) => (
                                 <li key={index} className="flex gap-3">
                                   <div className="mt-0.5 flex-shrink-0">
-                                    {issue.severity === 'error' ? (
-                                      <AlertCircle className="h-5 w-5 text-destructive" />
-                                    ) : issue.severity === 'warning' ? (
-                                      <AlertCircle className="h-5 w-5 text-amber-500" />
-                                    ) : (
-                                      <Info className="h-5 w-5 text-blue-500" />
-                                    )}
+                                    <AlertCircle className="h-5 w-5 text-destructive" />
                                   </div>
                                   <div>
-                                    <p className="font-medium">{issue.message}</p>
-                                    <p className="text-sm text-muted-foreground">{issue.suggestion}</p>
+                                    <p className="font-medium">{issue}</p>
                                   </div>
                                 </li>
                               ))}
@@ -242,20 +324,17 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                         </Card>
                       )}
                       
-                      {result.strengths.length > 0 && (
+                      {score.suggestions.length > 0 && (
                         <Card>
                           <CardHeader>
-                            <CardTitle className="text-base">Strengths</CardTitle>
-                            <CardDescription>
-                              These aspects of your resume are well-optimized for ATS.
-                            </CardDescription>
+                            <CardTitle className="text-base">Suggestions</CardTitle>
                           </CardHeader>
                           <CardContent>
                             <ul className="space-y-2">
-                              {result.strengths.map((strength, index) => (
+                              {score.suggestions.map((suggestion, index) => (
                                 <li key={index} className="flex gap-3">
-                                  <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                                  <span>{strength}</span>
+                                  <Info className="h-5 w-5 text-blue-500" />
+                                  <span>{suggestion}</span>
                                 </li>
                               ))}
                             </ul>
@@ -286,9 +365,9 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                       <Button 
                         onClick={analyzeKeywords} 
                         className="mt-4 w-full"
-                        disabled={isChecking || !jobDescription.trim()}
+                        disabled={isAnalyzing || !jobDescription.trim()}
                       >
-                        {isChecking ? (
+                        {isAnalyzing ? (
                           <>
                             <span className="animate-spin mr-2">
                               <Search className="h-4 w-4" />
@@ -305,7 +384,7 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                     </CardContent>
                   </Card>
                   
-                  {keywordResult && !isChecking && (
+                  {score && !isAnalyzing && (
                     <div className="space-y-4">
                       <Card>
                         <CardHeader>
@@ -317,36 +396,22 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                         <CardContent>
                           <div className="mb-2">
                             <div className="flex justify-between mb-1">
-                              <span className="text-sm font-medium">Match Rate: {keywordResult.score}%</span>
+                              <span className="text-sm font-medium">Match Rate: {score.score}%</span>
                             </div>
-                            <Progress value={keywordResult.score} className="h-2" />
+                            <Progress value={score.score} className="h-2" />
                           </div>
                           
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                             <div>
                               <h4 className="text-sm font-medium mb-2">Matched Keywords</h4>
                               <div className="flex flex-wrap gap-2">
-                                {keywordResult.matchedKeywords.map((keyword, index) => (
+                                {score.keywords.map((keyword, index) => (
                                   <Badge key={index} variant="success" className="text-xs">
                                     {keyword}
                                   </Badge>
                                 ))}
-                                {keywordResult.matchedKeywords.length === 0 && (
+                                {score.keywords.length === 0 && (
                                   <p className="text-sm text-muted-foreground">No matching keywords found.</p>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div>
-                              <h4 className="text-sm font-medium mb-2">Missing Keywords</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {keywordResult.missingKeywords.map((keyword, index) => (
-                                  <Badge key={index} variant="outline" className="text-xs">
-                                    {keyword}
-                                  </Badge>
-                                ))}
-                                {keywordResult.missingKeywords.length === 0 && (
-                                  <p className="text-sm text-muted-foreground">Your resume includes all important keywords!</p>
                                 )}
                               </div>
                             </div>
@@ -360,37 +425,25 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
                         </CardHeader>
                         <CardContent>
                           <ul className="space-y-2">
-                            {keywordResult.missingKeywords.length > 0 && (
+                            {score.issues.length > 0 && (
                               <li className="flex gap-3">
                                 <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="font-medium">Add missing keywords to your resume</p>
+                                  <p className="font-medium">Address the issues found</p>
                                   <p className="text-sm text-muted-foreground">
-                                    Include the missing keywords in your resume where relevant, especially in your work experience and skills sections.
+                                    Use the suggestions provided to improve your resume.
                                   </p>
                                 </div>
                               </li>
                             )}
                             
-                            {keywordResult.matchedKeywords.length > 0 && keywordResult.score < 70 && (
+                            {score.keywords.length < 5 && (
                               <li className="flex gap-3">
                                 <Info className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
                                 <div>
-                                  <p className="font-medium">Emphasize matching keywords</p>
+                                  <p className="font-medium">Include more keywords</p>
                                   <p className="text-sm text-muted-foreground">
-                                    Make sure matching keywords are prominently featured in your resume, especially in section headings and bullet points.
-                                  </p>
-                                </div>
-                              </li>
-                            )}
-                            
-                            {keywordResult.score >= 70 && (
-                              <li className="flex gap-3">
-                                <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                                <div>
-                                  <p className="font-medium">Good keyword match</p>
-                                  <p className="text-sm text-muted-foreground">
-                                    Your resume contains many of the important keywords from the job description.
+                                    Add more relevant keywords to your resume.
                                   </p>
                                 </div>
                               </li>
@@ -408,221 +461,6 @@ export function ATSChecker({ resumeData }: ATSCheckerProps) {
       </DialogContent>
     </Dialog>
   );
-}
-
-// ATS analysis logic
-function analyzeResume(resumeData: ResumeData): CheckResult {
-  const issues: CheckResult['issues'] = [];
-  const strengths: string[] = [];
-  let score = 100; // Start with perfect score and deduct points for issues
-  
-  // Check for contact information
-  if (!resumeData.personalInfo.email) {
-    issues.push({
-      severity: 'error',
-      message: 'Missing email address',
-      suggestion: 'Add your email address to ensure recruiters can contact you.'
-    });
-    score -= 10;
-  } else {
-    strengths.push('Email address is present');
-  }
-  
-  if (!resumeData.personalInfo.phone) {
-    issues.push({
-      severity: 'warning',
-      message: 'Missing phone number',
-      suggestion: 'Include your phone number for recruiters to reach you directly.'
-    });
-    score -= 5;
-  } else {
-    strengths.push('Phone number is present');
-  }
-  
-  // Check for professional summary
-  if (!resumeData.personalInfo.summary) {
-    issues.push({
-      severity: 'warning',
-      message: 'Missing professional summary',
-      suggestion: 'Add a concise professional summary to highlight your key qualifications.'
-    });
-    score -= 8;
-  } else if (resumeData.personalInfo.summary.length < 100) {
-    issues.push({
-      severity: 'info',
-      message: 'Professional summary is too short',
-      suggestion: 'Expand your summary to include more relevant skills and experience.'
-    });
-    score -= 3;
-  } else {
-    strengths.push('Professional summary is well-developed');
-  }
-  
-  // Check for sections
-  if (resumeData.sections.length === 0) {
-    issues.push({
-      severity: 'error',
-      message: 'No resume sections found',
-      suggestion: 'Add sections like Work Experience, Education, and Skills to your resume.'
-    });
-    score -= 15;
-  }
-  
-  // Check for work experience
-  const workExperienceSection = resumeData.sections.find(section => 
-    section.title.toLowerCase().includes('experience') || 
-    section.title.toLowerCase().includes('work')
-  );
-  
-  if (!workExperienceSection) {
-    issues.push({
-      severity: 'error',
-      message: 'Missing work experience section',
-      suggestion: 'Add a work experience section to showcase your professional background.'
-    });
-    score -= 12;
-  } else if (workExperienceSection.items.length === 0) {
-    issues.push({
-      severity: 'error',
-      message: 'Work experience section is empty',
-      suggestion: 'Add your work history with detailed descriptions of your responsibilities and achievements.'
-    });
-    score -= 10;
-  } else {
-    // Check experience items
-    let hasWeakDescriptions = false;
-    let hasStrongDescriptions = false;
-    
-    workExperienceSection.items.forEach(item => {
-      if (!item.description || item.description.length < 100) {
-        hasWeakDescriptions = true;
-      }
-      
-      if (item.description && item.description.length >= 200) {
-        hasStrongDescriptions = true;
-      }
-      
-      // Check for dates
-      if (!item.date) {
-        issues.push({
-          severity: 'warning',
-          message: `Missing date for "${item.title}" position`,
-          suggestion: 'Add employment dates to all work experiences.'
-        });
-        score -= 3;
-      }
-    });
-    
-    if (hasWeakDescriptions) {
-      issues.push({
-        severity: 'warning',
-        message: 'Some work experiences have minimal descriptions',
-        suggestion: 'Expand your job descriptions with specific achievements and responsibilities.'
-      });
-      score -= 5;
-    }
-    
-    if (hasStrongDescriptions) {
-      strengths.push('Detailed work experience descriptions');
-    }
-    
-    if (workExperienceSection.items.length > 0) {
-      strengths.push('Work experience section is present');
-    }
-  }
-  
-  // Check for education
-  const educationSection = resumeData.sections.find(section => 
-    section.title.toLowerCase().includes('education')
-  );
-  
-  if (!educationSection) {
-    issues.push({
-      severity: 'warning',
-      message: 'Missing education section',
-      suggestion: 'Add an education section with your academic background.'
-    });
-    score -= 8;
-  } else if (educationSection.items.length === 0) {
-    issues.push({
-      severity: 'warning',
-      message: 'Education section is empty',
-      suggestion: 'Add your educational background with degrees, institutions, and graduation dates.'
-    });
-    score -= 5;
-  } else {
-    strengths.push('Education section is present');
-  }
-  
-  // Check for skills
-  const skillsSection = resumeData.sections.find(section => 
-    section.title.toLowerCase().includes('skills')
-  );
-  
-  if (!skillsSection) {
-    issues.push({
-      severity: 'warning',
-      message: 'Missing skills section',
-      suggestion: 'Add a dedicated skills section to highlight your technical and soft skills.'
-    });
-    score -= 8;
-  } else if (skillsSection.items.length === 0) {
-    issues.push({
-      severity: 'warning',
-      message: 'Skills section is empty',
-      suggestion: 'List your relevant skills, especially those mentioned in the job description.'
-    });
-    score -= 5;
-  } else {
-    strengths.push('Skills section is present');
-  }
-  
-  // Check for keywords in professional title
-  if (!resumeData.personalInfo.title) {
-    issues.push({
-      severity: 'warning',
-      message: 'Missing professional title',
-      suggestion: 'Add a clear professional title that matches your target position.'
-    });
-    score -= 5;
-  } else {
-    strengths.push('Professional title is present');
-  }
-  
-  // Check for links
-  if (resumeData.personalInfo.links && resumeData.personalInfo.links.length > 0) {
-    const hasLinkedIn = resumeData.personalInfo.links.some(link => 
-      link.title.toLowerCase().includes('linkedin') || 
-      link.url.toLowerCase().includes('linkedin.com')
-    );
-    
-    if (!hasLinkedIn) {
-      issues.push({
-        severity: 'info',
-        message: 'LinkedIn profile not included',
-        suggestion: 'Add your LinkedIn profile to enhance your professional credibility.'
-      });
-      score -= 2;
-    } else {
-      strengths.push('LinkedIn profile is included');
-    }
-  } else {
-    issues.push({
-      severity: 'info',
-      message: 'No professional links',
-      suggestion: 'Consider adding your LinkedIn profile or professional website.'
-    });
-    score -= 3;
-  }
-  
-  // Ensure score stays within 0-100 range
-  score = Math.max(0, Math.min(100, Math.round(score)));
-  
-  return {
-    score,
-    issues,
-    strengths
-  };
 }
 
 // Keyword analysis function
