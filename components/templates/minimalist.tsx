@@ -1,60 +1,23 @@
 "use client"
 
-// Define the interface for the resume data structure
-interface ResumeData {
-  personalInfo: {
-    firstName: string;
-    lastName: string;
-    title: string;
-    email?: string;
-    phone?: string;
-    location?: string;
-    links?: {
-      id: string;
-      url: string;
-      title: string;
-    }[];
-    summary?: string;
-  };
-  sections?: {
-    id: string;
-    type?: string;
-    title: string;
-    items: {
-      id: string;
-      title: string;
-      subtitle: string;
-      date?: string;
-      description?: string;
-    }[];
-  }[];
-}
+import { ColorTheme, ResumeData, themeColors } from "@/types"
 
-// Define valid color theme values
-type ColorTheme = "default" | "blue" | "green" | "purple" | "red" | "orange" | "teal";
-
-interface ATSTemplateProps {
+interface MinimalistTemplateProps {
   data: ResumeData;
   colorTheme?: ColorTheme;
+  font?: string;
 }
 
-// Color theme mapping
-const themeColors: Record<ColorTheme, string> = {
-  default: "#000000",
-  blue: "#3B82F6",
-  green: "#10B981",
-  purple: "#8B5CF6",
-  red: "#EF4444",
-  orange: "#F97316",
-  teal: "#14B8A6",
-};
-
-export function MinimalistTemplate({ data, colorTheme = "default" }: ATSTemplateProps) {
+export function MinimalistTemplate({ 
+  data, 
+  colorTheme = "default",
+  font = "'Inter', sans-serif"
+}: MinimalistTemplateProps) {
   // Get the theme color
   const themeColor = themeColors[colorTheme] || themeColors.default;
   
   return (
-    <div className="font-sans">
+    <div className="font-sans" style={{ fontFamily: font }}>
       {/* Header with name */}
       <div className="mb-4">
         <h1 className="text-2xl font-bold" style={{ color: themeColor }}>
