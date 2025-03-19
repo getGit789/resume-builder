@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Check } from "lucide-react"
+import { Check, Type } from "lucide-react"
 import { Inter, Open_Sans } from "next/font/google"
 
 import { cn } from "@/lib/utils"
@@ -28,9 +28,12 @@ const openSans = Open_Sans({
 
 // Define available fonts
 const FONTS = [
-  "Inter",
-  "Open Sans",
-  "Georgia"
+  { id: "inter", name: "Inter" },
+  { id: "roboto", name: "Roboto" },
+  { id: "lato", name: "Lato" },
+  { id: "poppins", name: "Poppins" },
+  { id: "montserrat", name: "Montserrat" },
+  { id: "open-sans", name: "Open Sans" },
 ]
 
 // Map font names to CSS font-family values
@@ -43,55 +46,29 @@ export const FONT_FAMILY_MAP: Record<string, string> = {
 interface FontSelectorProps {
   value: string
   onValueChange: (value: string) => void
-  displayText?: string
 }
 
-export function FontSelector({ 
-  value, 
+export function FontSelector({
+  value,
   onValueChange,
-  displayText = "Font"
 }: FontSelectorProps) {
-  const [mounted, setMounted] = useState(false)
-  
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-  
-  if (!mounted) {
-    return null
-  }
-  
-  const handleValueChange = (fontName: string) => {
-    const fontFamily = FONT_FAMILY_MAP[fontName] || fontName
-    onValueChange(fontFamily)
-  }
-  
-  // Get the display name from the font family value
-  const getDisplayName = (fontFamily: string) => {
-    const entry = Object.entries(FONT_FAMILY_MAP).find(([_, value]) => value === fontFamily)
-    return entry ? entry[0] : fontFamily
-  }
-  
-  const displayValue = getDisplayName(value)
-  
+  const currentFontName = FONTS.find(f => f.id === value)?.name || "Select Font"
+
   return (
     <div className={`${inter.variable} ${openSans.variable}`}>
-      <Select
-        value={displayValue}
-        onValueChange={handleValueChange}
-      >
-        <SelectTrigger className="h-9 w-[130px]">
-          <SelectValue>{displayText}</SelectValue>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="w-[130px]">
+          <Type className="mr-2 h-4 w-4" />
+          <SelectValue>{currentFontName}</SelectValue>
         </SelectTrigger>
         <SelectContent>
           {FONTS.map((font) => (
-            <SelectItem 
-              key={font} 
-              value={font}
-              className="flex items-center justify-between"
-              style={{ fontFamily: FONT_FAMILY_MAP[font] }}
+            <SelectItem
+              key={font.id}
+              value={font.id}
+              style={{ fontFamily: font.name }}
             >
-              <span>{font}</span>
+              {font.name}
             </SelectItem>
           ))}
         </SelectContent>

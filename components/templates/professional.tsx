@@ -13,6 +13,44 @@ function getThemeColor(colorTheme: ColorTheme): string {
   return themeColors[colorTheme] || themeColors.blue;
 }
 
+function lexicalToHtml(jsonString: string): string {
+  try {
+    const content = JSON.parse(jsonString);
+    let html = '';
+
+    function processNode(node: any): string {
+      if (!node) return '';
+
+      switch (node.type) {
+        case 'text':
+          let text = node.text;
+          if (node.format & 1) text = `<strong>${text}</strong>`;
+          if (node.format & 2) text = `<em>${text}</em>`;
+          if (node.format & 4) text = `<u>${text}</u>`;
+          if (node.format & 8) text = `<s>${text}</s>`;
+          return text;
+        case 'paragraph':
+          return `<p>${node.children?.map(processNode).join('') || ''}</p>`;
+        case 'list':
+          const tag = node.tag || (node.listType === 'bullet' ? 'ul' : 'ol');
+          return `<${tag}>${node.children?.map(processNode).join('') || ''}</${tag}>`;
+        case 'listitem':
+          return `<li>${node.children?.map(processNode).join('') || ''}</li>`;
+        case 'link':
+          return `<a href="${node.url}">${node.children?.map(processNode).join('') || ''}</a>`;
+        default:
+          return node.children?.map(processNode).join('') || '';
+      }
+    }
+
+    html = processNode(content.root);
+    return html;
+  } catch (error) {
+    console.error('Error converting Lexical JSON to HTML:', error);
+    return jsonString; // Return the original string if parsing fails
+  }
+}
+
 export function ProfessionalTemplate({ 
   data, 
   colorTheme = "blue",
@@ -237,7 +275,7 @@ export function ProfessionalTemplate({
         {data.personalInfo.summary && (
           <div className="section-container">
             <h2 className="professional-section-title">Professional Summary</h2>
-            <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: data.personalInfo.summary }} />
+            <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: lexicalToHtml(data.personalInfo.summary) }} />
           </div>
         )}
 
@@ -256,7 +294,7 @@ export function ProfessionalTemplate({
                   </div>
                 )}
                 {item.description && (
-                  <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: item.description }} />
+                  <div className="rich-text-content" dangerouslySetInnerHTML={{ __html: lexicalToHtml(item.description) }} />
                 )}
               </div>
             ))}

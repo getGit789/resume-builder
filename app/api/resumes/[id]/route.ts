@@ -42,46 +42,92 @@ function getMockResume(id: string) {
   return mockResumes.find(resume => resume.id === id) || null;
 }
 
+// Helper function to extract guest token from request
+function getGuestToken(request: Request | NextRequest): string | null {
+  // Check headers first
+  const token = request.headers.get('X-Guest-Token');
+  if (token) return token;
+  
+  // Then check cookies
+  const cookies = request.headers.get('cookie') || '';
+  const match = cookies.match(/guestToken=([^;]+)/);
+  return match ? match[1] : null;
+}
+
 /**
  * GET /api/resumes/[id]
  * Get a specific resume
  */
-export async function GET(req: Request, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
-
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const resume = await prisma.resume.findUnique({
-      where: { id: params.id },
+    // Ensure params.id is available
+    if (!params?.id) {
+      return new NextResponse('Resume ID is required', { status: 400 });
+    }
+    
+    // Try to get user from session
+    const session = await getServerSession(authOptions);
+    const guestToken = getGuestToken(request);
+    
+    // If no session and no guest token, return unauthorized
+    if (!session?.user?.email && !guestToken) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+    
+    // Build query based on auth status
+    const where: any = { id: params.id };
+    
+    // If user is authenticated, filter by user ID
+    if (session?.user?.id) {
+      where.userId = session.user.id;
+    } 
+    // If guest mode, filter by guest token
+    else if (guestToken) {
+      where.guestToken = guestToken;
+    }
+
+    console.log('Fetching resume with query:', where);
+
+    const resume = await prisma.resume.findFirst({
+      where,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        template: true,
+        colorTheme: true,
+        font: true,
+        isPublic: true,
+        shareToken: true,
+        guestToken: true,
+        data: true,
+        experiences: true,
+        education: true,
+        skills: true,
+        projects: true,
+        certifications: true,
+        languages: true,
+        references: true,
+        achievements: true,
+        publications: true,
+        volunteer: true,
+        interests: true,
+        customSections: true,
+      },
     });
 
     if (!resume) {
-      return NextResponse.json(
-        { error: "Resume not found" },
-        { status: 404 }
-      );
-    }
-
-    if (resume.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
+      return new NextResponse('Resume not found', { status: 404 });
     }
 
     return NextResponse.json(resume);
   } catch (error) {
-    console.error("Failed to fetch resume:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch resume" },
-      { status: 500 }
-    );
+    console.error('Error fetching resume:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -89,51 +135,85 @@ export async function GET(req: Request, { params }: RouteParams) {
  * PUT /api/resumes/[id]
  * Update a specific resume
  */
-export async function PUT(req: Request, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
-    return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
-    );
-  }
-
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
   try {
-    const data = await req.json();
-    const resume = await prisma.resume.findUnique({
-      where: { id: params.id },
+    // Ensure params.id is available
+    if (!params?.id) {
+      return new NextResponse('Resume ID is required', { status: 400 });
+    }
+    
+    // Try to get user from session
+    const session = await getServerSession(authOptions);
+    const guestToken = getGuestToken(request);
+    
+    // If no session and no guest token, return unauthorized
+    if (!session?.user?.email && !guestToken) {
+      return new NextResponse('Unauthorized', { status: 401 });
+    }
+
+    // Build query based on auth status
+    const where: any = { id: params.id };
+    
+    // If user is authenticated, filter by user ID
+    if (session?.user?.id) {
+      where.userId = session.user.id;
+    } 
+    // If guest mode, filter by guest token
+    else if (guestToken) {
+      where.guestToken = guestToken;
+    }
+
+    const body = await request.json();
+    
+    console.log('Updating resume with query:', where);
+    
+    // Verify that the resume exists and belongs to the current user/guest
+    const existingResume = await prisma.resume.findFirst({
+      where,
+      select: { id: true }
     });
-
-    if (!resume) {
-      return NextResponse.json(
-        { error: "Resume not found" },
-        { status: 404 }
-      );
+    
+    if (!existingResume) {
+      return new NextResponse('Resume not found or access denied', { status: 404 });
     }
-
-    if (resume.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
-    }
-
-    const updatedResume = await prisma.resume.update({
+    
+    const resume = await prisma.resume.update({
       where: { id: params.id },
-      data: {
-        ...data,
-        updatedAt: new Date(),
+      data: body,
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        template: true,
+        colorTheme: true,
+        font: true,
+        isPublic: true,
+        shareToken: true,
+        guestToken: true,
+        data: true,
+        experiences: true,
+        education: true,
+        skills: true,
+        projects: true,
+        certifications: true,
+        languages: true,
+        references: true,
+        achievements: true,
+        publications: true,
+        volunteer: true,
+        interests: true,
+        customSections: true,
       },
     });
 
-    return NextResponse.json(updatedResume);
+    return NextResponse.json(resume);
   } catch (error) {
-    console.error("Failed to update resume:", error);
-    return NextResponse.json(
-      { error: "Failed to update resume" },
-      { status: 500 }
-    );
+    console.error('Error updating resume:', error);
+    return new NextResponse('Internal Server Error', { status: 500 });
   }
 }
 
@@ -141,42 +221,67 @@ export async function PUT(req: Request, { params }: RouteParams) {
  * DELETE /api/resumes/[id]
  * Delete a specific resume
  */
-export async function DELETE(req: Request, { params }: RouteParams) {
-  const session = await getServerSession(authOptions);
-
-  if (!session?.user?.id) {
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  // Ensure params.id is available before using it
+  const resumeId = params.id;
+  if (!resumeId) {
     return NextResponse.json(
-      { error: "Unauthorized" },
-      { status: 401 }
+      { error: "Resume ID is required" },
+      { status: 400 }
     );
   }
-
+  
   try {
-    const resume = await prisma.resume.findUnique({
-      where: { id: params.id },
+    // Try to get user from session
+    const session = await getServerSession(authOptions);
+    const guestToken = getGuestToken(req);
+    
+    // If no session and no guest token, return unauthorized
+    if (!session?.user?.email && !guestToken) {
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
+    }
+    
+    // Build query based on auth status
+    const where: any = { id: resumeId };
+    
+    // If user is authenticated, filter by user ID
+    if (session?.user?.id) {
+      where.userId = session.user.id;
+    } 
+    // If guest mode, filter by guest token
+    else if (guestToken) {
+      where.guestToken = guestToken;
+    }
+    
+    // Verify the resume exists and belongs to the user
+    const resume = await prisma.resume.findFirst({
+      where,
+      select: { id: true }
     });
 
     if (!resume) {
       return NextResponse.json(
-        { error: "Resume not found" },
+        { error: "Resume not found or access denied" },
         { status: 404 }
       );
     }
 
-    if (resume.userId !== session.user.id) {
-      return NextResponse.json(
-        { error: "Unauthorized" },
-        { status: 403 }
-      );
-    }
-
     await prisma.resume.delete({
-      where: { id: params.id },
+      where: { id: resumeId },
     });
 
+    // Delete cache for this resume
+    await deleteCache(`resume:${resumeId}`);
+    
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Failed to delete resume:", error);
+    console.error(`Error deleting resume ${resumeId}:`, error);
     return NextResponse.json(
       { error: "Failed to delete resume" },
       { status: 500 }

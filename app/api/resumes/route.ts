@@ -68,34 +68,68 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser(request) as AuthUser | null;
     
     if (!user) {
+      console.error("Resume creation failed: User not authenticated");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
+    // Log the user information for debugging
+    console.log("Creating resume for user:", { 
+      id: user.id, 
+      email: user.email, 
+      isGuest: user.isGuest 
+    });
+    
     const body = await request.json();
-    const { name, data = defaultResumeData, template = "professional", colorTheme = "default" } = body;
+    const { 
+      name, 
+      data = defaultResumeData, 
+      template = "professional", 
+      colorTheme = "default",
+      font = "Inter"
+    } = body;
     
     if (!name) {
+      console.error("Resume creation failed: Name is required");
       return NextResponse.json(
         { error: "Name is required" },
         { status: 400 }
       );
     }
     
+    // Prepare data for creation
+    const resumeData = {
+      name,
+      data,
+      template,
+      colorTheme,
+      font,
+      // For guest users, store their token instead of userId
+      ...(user.isGuest 
+        ? { guestToken: user.guestToken } 
+        : { userId: user.id }
+      )
+    };
+    
+    console.log("Creating resume with data:", JSON.stringify(resumeData, null, 2));
+    
+    // Create the resume
     const resume = await prisma.resume.create({
-      data: {
-        name,
-        data,
-        template,
-        colorTheme,
-        userId: user.id,
-      },
+      data: resumeData,
     });
+    
+    console.log("Resume created successfully:", resume.id);
     
     return NextResponse.json(resume);
   } catch (error) {
     console.error("Error creating resume:", error);
+    
+    // Return more detailed error information
+    const errorMessage = error instanceof Error 
+      ? `${error.name}: ${error.message}` 
+      : "Unknown error occurred";
+      
     return NextResponse.json(
-      { error: "Failed to create resume" },
+      { error: "Failed to create resume", details: errorMessage },
       { status: 500 }
     );
   }

@@ -1,349 +1,221 @@
 "use client"
 
-import { Bold, Italic, Link2, List, Strikethrough } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
-import { Button } from "./ui/button"
-import { cn } from "@/lib/utils"
-import styles from "./rich-text-editor.module.css"
+import { useEffect, useMemo, useCallback } from "react";
+import { LexicalComposer } from "@lexical/react/LexicalComposer";
+import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
+import { ContentEditable } from "@lexical/react/LexicalContentEditable";
+import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
+import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
+import { LinkPlugin } from "@lexical/react/LexicalLinkPlugin";
+import { ListPlugin } from "@lexical/react/LexicalListPlugin";
+import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
+import { TRANSFORMERS } from "@lexical/markdown";
+import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
+import { $getRoot, $insertNodes, $createParagraphNode, $createTextNode } from "lexical";
+import { cn } from "@/lib/utils";
+import { RichTextEditorToolbar } from "./rich-text-editor-toolbar";
+import { AISuggestionPlugin } from "./ai-suggestion-plugin";
 
-interface RichTextEditorProps {
-  value: string
-  onChange: (value: string) => void
-  placeholder?: string
-  className?: string
-  characterLimit?: number
-  showCharacterCount?: boolean
-  showFormatting?: boolean
+// Import all necessary node types
+import { LinkNode, AutoLinkNode } from "@lexical/link";
+import { ListNode, ListItemNode } from "@lexical/list";
+import { HeadingNode, QuoteNode } from "@lexical/rich-text";
+import { CodeNode, CodeHighlightNode } from "@lexical/code";
+
+// Error boundary component
+function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative min-h-[200px] rounded-md border border-destructive bg-destructive/10 p-4">
+      <div className="text-sm text-destructive">
+        Something went wrong. Please try refreshing the page.
+      </div>
+      {children}
+    </div>
+  );
 }
 
-const ALLOWED_TAGS = [
-  'p', 'div', 'span', 'br', 'b', 'strong', 'i', 'em', 'u', 'ul', 'ol', 'li',
-  'a', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'code', 'mark'
-];
+interface RichTextEditorProps {
+  initialContent?: string;
+  onChange?: (content: string) => void;
+  className?: string;
+  placeholder?: string;
+  fieldType?: 'summary' | 'description' | 'skills';
+  jobTitle?: string;
+}
 
-const ALLOWED_ATTR = ['href', 'target', 'rel', 'class', 'id', 'style'];
+// Plugin to handle content changes - optimized with useCallback
+function OnChangePlugin({ onChange }: { onChange?: (content: string) => void }) {
+  const [editor] = useLexicalComposerContext();
 
-const sanitizeHtml = (html: string) => {
-  if (!html) return '';
-  
-  // Create a temporary div to parse the HTML
-  const tempDiv = document.createElement('div');
-  tempDiv.innerHTML = html;
-  
-  // Remove potentially dangerous elements
-  const scripts = tempDiv.querySelectorAll('script, iframe, object, embed, style');
-  scripts.forEach(el => el.remove());
-  
-  // Ensure links have proper attributes
-  const links = tempDiv.querySelectorAll('a');
-  links.forEach(link => {
-    link.setAttribute('target', '_blank');
-    link.setAttribute('rel', 'noopener noreferrer');
-  });
-  
-  return tempDiv.innerHTML;
-};
+  // Use a stable reference for the onChange callback
+  const onChangeRef = useCallback((editorState: any) => {
+    editorState.read(() => {
+      const content = JSON.stringify(editorState.toJSON());
+      onChange?.(content);
+    });
+  }, [onChange]);
 
-const isEmptyContent = (content: string) => {
-  if (!content) return true;
-  
-  // Clean up HTML tags and entities
-  const cleaned = content
-    .replace(/&nbsp;/g, ' ')
-    .replace(/<br\s*\/?>/gi, '')
-    .replace(/<p><\/p>/gi, '')
-    .replace(/<[^>]*>/g, '')
-    .trim();
-    
-  return cleaned === '';
-};
+  useEffect(() => {
+    // Only register the listener once
+    return editor.registerUpdateListener(({ editorState }) => {
+      // Skip updates that don't affect content
+      if (!editor.isComposing()) {
+        onChangeRef(editorState);
+      }
+    });
+  }, [editor, onChangeRef]);
 
-export function RichTextEditor({
-  value,
-  onChange,
-  placeholder,
-  className,
-  characterLimit = 600,
-  showCharacterCount = false,
-  showFormatting = true,
-}: RichTextEditorProps) {
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [showPlaceholder, setShowPlaceholder] = useState(isEmptyContent(value));
-  const [formatState, setFormatState] = useState({
-    bold: false,
-    italic: false,
-    underline: false,
-    list: false
-  });
+  return null;
+}
 
-  // Update format state based on current selection
-  const updateFormatState = () => {
-    if (document.queryCommandSupported('bold')) {
-      setFormatState({
-        bold: document.queryCommandState('bold'),
-        italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline'),
-        list: document.queryCommandState('insertUnorderedList')
+// Initial content plugin - optimized to only run once on mount
+function InitialContentPlugin({ content }: { content?: string }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (!content) return;
+
+    try {
+      // Attempt to parse the stored content
+      const parsedContent = JSON.parse(content);
+      const editorState = editor.parseEditorState(parsedContent);
+      editor.setEditorState(editorState);
+    } catch (e) {
+      console.warn('Failed to parse editor state:', e);
+      
+      // Create a fallback editor state with the content as plain text
+      editor.update(() => {
+        const root = $getRoot();
+        const paragraph = $createParagraphNode();
+        
+        // If we have content, add it as plain text
+        if (content && typeof content === 'string') {
+          try {
+            // Try to extract text content from JSON if possible
+            const parsedContent = JSON.parse(content);
+            const textContent = typeof parsedContent === 'object' && parsedContent.root && 
+                              parsedContent.root.children ? 
+                              extractTextFromNodes(parsedContent.root.children) : 
+                              content;
+            paragraph.append($createTextNode(textContent));
+          } catch {
+            // If all else fails, just use the content string directly
+            paragraph.append($createTextNode(content));
+          }
+        }
+        
+        root.append(paragraph);
       });
     }
-  };
+    // Only run on initial mount or if content ref changes
+  }, [editor]); // Remove content dependency
 
-  // Handle selection changes
-  useEffect(() => {
-    const handleSelectionChange = () => {
-      if (isEditing) {
-        updateFormatState();
-      }
-    };
-    
-    document.addEventListener('selectionchange', handleSelectionChange);
-    return () => {
-      document.removeEventListener('selectionchange', handleSelectionChange);
-    };
-  }, [isEditing]);
+  return null;
+}
 
-  // Handle paste events to clean formatting
-  useEffect(() => {
-    const handlePaste = (e: ClipboardEvent) => {
-      e.preventDefault();
-      const text = e.clipboardData?.getData('text/plain') || '';
-      document.execCommand('insertText', false, text);
-    };
-    
-    const editor = editorRef.current;
-    if (editor) {
-      editor.addEventListener('paste', handlePaste);
-    }
-    
-    return () => {
-      if (editor) {
-        editor.removeEventListener('paste', handlePaste);
-      }
-    };
-  }, []);
+// Helper function to extract text from node structure
+function extractTextFromNodes(nodes: any[]): string {
+  if (!Array.isArray(nodes)) return '';
+  
+  return nodes.map(node => {
+    if (node.text) return node.text;
+    if (node.children) return extractTextFromNodes(node.children);
+    return '';
+  }).join(' ');
+}
 
-  // Initialize content when value changes from outside
-  useEffect(() => {
-    if (editorRef.current && !isEditing) {
-      editorRef.current.innerHTML = value || '';
-      setShowPlaceholder(isEmptyContent(value));
-    }
-  }, [value, isEditing]);
+// Create a stabilized ContentEditable component
+const StableContentEditable = () => (
+  <ContentEditable className="min-h-[200px] px-3 py-2 outline-none" />
+);
 
-  // Apply formatting
-  const handleFormat = (command: string) => {
-    if (!editorRef.current) return;
-    
-    editorRef.current.focus();
-    
-    try {
-      if (command === 'createLink') {
-        const selection = window.getSelection();
-        const hasSelection = selection && selection.toString().length > 0;
-        
-        const url = window.prompt('Enter the URL:');
-        if (!url) return;
-        
-        if (!hasSelection) {
-          const linkText = window.prompt('Enter link text:', 'Link text') || 'Link text';
-          document.execCommand('insertHTML', false, 
-            `<a href="${url}" target="_blank" rel="noopener noreferrer">${linkText}</a>`);
-        } else {
-          document.execCommand(command, false, url);
-          
-          // Ensure links have target and rel attributes
-          const links = editorRef.current.querySelectorAll('a');
-          links.forEach(link => {
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
-          });
-        }
-      } else {
-        document.execCommand(command, false);
-      }
+// Create a stabilized placeholder component
+const StablePlaceholder = ({ placeholder }: { placeholder: string }) => (
+  <div className="absolute top-12 left-3 text-muted-foreground pointer-events-none select-none">
+    {placeholder}
+  </div>
+);
+
+export function RichTextEditor({
+  initialContent = "",
+  onChange,
+  className,
+  placeholder = "Enter some text...",
+  fieldType,
+  jobTitle,
+}: RichTextEditorProps) {
+  // Memoize the editor configuration to prevent unnecessary re-renders
+  const initialConfig = useMemo(() => ({
+    namespace: `ResumeBuilder-${fieldType || 'default'}`,
+    editorState: initialContent ? undefined : undefined,
+    theme: {
+      text: {
+        bold: "font-bold",
+        italic: "italic",
+        underline: "underline",
+        strikethrough: "line-through",
+      },
+      heading: {
+        h1: "text-2xl font-bold",
+        h2: "text-xl font-bold",
+        h3: "text-lg font-bold",
+      },
+      list: {
+        ul: "list-disc list-inside",
+        ol: "list-decimal list-inside",
+      },
+      quote: "border-l-4 border-gray-200 pl-4 italic",
+      code: "bg-gray-100 rounded px-1 font-mono text-sm",
+    },
+    nodes: [
+      // Text formatting nodes
+      HeadingNode,
+      QuoteNode,
       
-      // Update format state after applying formatting
-      updateFormatState();
+      // List nodes
+      ListNode,
+      ListItemNode,
       
-      // Update the value
-      if (editorRef.current) {
-        const content = editorRef.current.innerHTML;
-        const sanitized = sanitizeHtml(content);
-        onChange(sanitized);
-      }
-    } catch (error) {
-      console.error('Formatting error:', error);
-    }
-  };
+      // Link nodes
+      LinkNode,
+      AutoLinkNode,
+      
+      // Code nodes
+      CodeNode,
+      CodeHighlightNode,
+    ],
+    onError: (error: Error) => {
+      console.error("Editor error:", error);
+    },
+  }), [fieldType]); // Only depend on fieldType to prevent recreation
 
-  // Handle content changes
-  const handleInput = () => {
-    if (!editorRef.current) return;
-    
-    const content = editorRef.current.innerHTML;
-    const isEmpty = isEmptyContent(content);
-    
-    setShowPlaceholder(isEmpty);
-    
-    if (isEmpty) {
-      onChange('');
-    } else {
-      onChange(content);
-    }
-  };
-
-  const characterCount = value.length;
+  const memoizedPlaceholder = useMemo(() => <StablePlaceholder placeholder={placeholder} />, [placeholder]);
+  const memoizedContentEditable = useMemo(() => <StableContentEditable />, []);
 
   return (
-    <div className={cn("relative group", className)}>
-      <div className="space-y-2">
-        {showFormatting && (
-          <div className="flex items-center gap-1 pb-2">
-            <div className="flex gap-1">
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Bold"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("bold");
-                }}
-                className={formatState.bold ? "bg-muted" : ""}
-              >
-                <Bold className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Italic"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("italic");
-                }}
-                className={formatState.italic ? "bg-muted" : ""}
-              >
-                <Italic className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Strikethrough"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("strikethrough");
-                }}
-              >
-                <Strikethrough className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Bullet List"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("insertUnorderedList");
-                }}
-                className={formatState.list ? "bg-muted" : ""}
-              >
-                <List className="h-4 w-4" />
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="icon" 
-                title="Add Link"
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  handleFormat("createLink");
-                }}
-              >
-                <Link2 className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        )}
-        <div className="relative">
-          <div
-            ref={editorRef}
-            contentEditable
-            className={cn(
-              "min-h-[100px] p-3 rounded-md border focus:outline-none focus:ring-2 focus:ring-ring",
-              isEditing && "ring-2 ring-ring",
-              styles.richTextEditor,
-              className
-            )}
-            onFocus={() => {
-              setIsEditing(true);
-              if (showPlaceholder && editorRef.current) {
-                editorRef.current.innerHTML = '';
-              }
-            }}
-            onBlur={() => {
-              setIsEditing(false);
-              if (editorRef.current) {
-                const content = editorRef.current.innerHTML;
-                const isEmpty = isEmptyContent(content);
-                
-                if (isEmpty) {
-                  editorRef.current.innerHTML = '';
-                  setShowPlaceholder(true);
-                  onChange('');
-                } else {
-                  const sanitized = sanitizeHtml(content);
-                  onChange(sanitized);
-                }
-              }
-            }}
-            onInput={handleInput}
-            onKeyDown={(e) => {
-              // Keyboard shortcuts for formatting
-              if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-                switch (e.key.toLowerCase()) {
-                  case 'b': // Bold
-                    e.preventDefault();
-                    handleFormat('bold');
-                    break;
-                  case 'i': // Italic
-                    e.preventDefault();
-                    handleFormat('italic');
-                    break;
-                  case 'u': // Underline
-                    e.preventDefault();
-                    handleFormat('underline');
-                    break;
-                  case 'k': // Link
-                    e.preventDefault();
-                    handleFormat('createLink');
-                    break;
-                }
-              }
-            }}
-          />
-          {showPlaceholder && placeholder && (
-            <div 
-              className="absolute top-3 left-3 pointer-events-none text-muted-foreground"
-              onClick={() => {
-                if (editorRef.current) {
-                  editorRef.current.focus();
-                }
-              }}
-            >
-              {placeholder}
+    <LexicalComposer initialConfig={initialConfig}>
+      <div className={cn("relative min-h-[200px] rounded-md border", className)}>
+        <div className="flex items-center justify-between border-b">
+          <RichTextEditorToolbar className="border-b-0 flex-1" />
+          {fieldType && jobTitle && (
+            <div className="border-l h-8 flex items-center px-2">
+              <AISuggestionPlugin fieldType={fieldType} jobTitle={jobTitle} />
             </div>
           )}
         </div>
-        {showCharacterCount && (
-          <div className="flex justify-end">
-            <span className={cn("text-sm", characterCount > characterLimit ? "text-destructive" : "text-muted-foreground")}>
-              {characterCount} / {characterLimit}
-            </span>
-          </div>
-        )}
+        <RichTextPlugin
+          contentEditable={memoizedContentEditable}
+          placeholder={memoizedPlaceholder}
+          ErrorBoundary={LexicalErrorBoundary}
+        />
+        <HistoryPlugin />
+        <AutoFocusPlugin />
+        <LinkPlugin />
+        <ListPlugin />
+        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <OnChangePlugin onChange={onChange} />
+        {initialContent && <InitialContentPlugin content={initialContent} />}
       </div>
-    </div>
+    </LexicalComposer>
   );
 }

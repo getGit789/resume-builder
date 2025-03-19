@@ -49,6 +49,53 @@ export function absoluteUrl(path: string) {
   return `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}${path}`
 }
 
+/**
+ * Debounce function to limit the rate at which a function can fire
+ */
+export function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return function(...args: Parameters<T>) {
+    const later = () => {
+      timeout = null;
+      func(...args);
+    };
+    
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(later, wait);
+  };
+}
+
+/**
+ * Generates a direct download URL for an export
+ * This adds necessary parameters to make the file downloadable directly
+ */
+export async function generateDirectDownloadUrl(
+  url: string,
+  resumeId: string
+): Promise<string> {
+  try {
+    // Add a timestamp to prevent caching
+    const timestamp = new Date().getTime();
+    
+    // Create a URL object to easily manipulate the URL
+    const urlObj = new URL(url);
+    
+    // Add query parameters for direct download
+    urlObj.searchParams.append('download', 'true');
+    urlObj.searchParams.append('resumeId', resumeId);
+    urlObj.searchParams.append('t', timestamp.toString());
+    
+    return urlObj.toString();
+  } catch (error) {
+    console.error('Error generating direct download URL:', error);
+    return url; // Return original URL if there's an error
+  }
+}
+
 export function truncate(str: string, length: number) {
   return str.length > length ? `${str.substring(0, length)}...` : str
 }

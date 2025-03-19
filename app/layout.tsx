@@ -32,8 +32,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${openSans.variable} light`}>
-      <body className={inter.className} suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${inter.variable} ${openSans.variable} antialiased`} suppressHydrationWarning>
         <NextAuthProvider>
           <Providers>
             <ThemeProvider
@@ -41,6 +41,7 @@ export default function RootLayout({
               defaultTheme="light"
               enableSystem={false}
               disableTransitionOnChange
+              storageKey="resume-builder-theme"
             >
               <Header />
               <main>{children}</main>

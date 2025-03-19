@@ -4,6 +4,7 @@ import { ProfessionalTemplate } from "@/components/templates/professional"
 import { MinimalistTemplate } from "@/components/templates/minimalist"
 import { ColorTheme, ResumeData } from "@/types"
 import { useEffect, useState, useRef } from "react"
+import { cn } from "@/lib/utils"
 
 interface ResumePreviewProps {
   resumeData: ResumeData;
@@ -208,30 +209,14 @@ export function ResumePreview({
 
   return (
     <div 
-      id="resume-preview" 
-      ref={resolvedRef}
-      className={`bg-white ${isExport ? 'pdf-export-preview' : 'shadow-lg rounded-lg'} overflow-visible mx-auto`}
-      style={{
-        width: '100%',
-        maxWidth: isExport ? 'none' : '800px',
-        transformOrigin: 'top left',
-        padding: isExport ? '0' : undefined,
-        margin: isExport ? '0' : undefined,
-        backgroundColor: 'white',
-      }}
-      data-loaded={isLoaded}
-      data-template={template}
-      data-export={isExport}
+      ref={previewRef}
+      className={cn(
+        "resume-preview bg-white",
+        isExport ? "p-0" : "p-8"
+      )}
+      style={{ fontFamily: font }}
     >
-      <div 
-        className={isExport ? 'p-0' : 'p-6'} 
-        style={{
-          backgroundColor: 'white',
-          color: 'black',
-        }}
-      >
-        {renderTemplate()}
-      </div>
+      {renderTemplate()}
     </div>
   );
 }

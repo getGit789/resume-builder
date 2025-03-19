@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { Section } from "@/types/resume";
+import { RichTextEditor } from "./rich-text-editor";
 
 interface SortableSectionProps {
   section: Section;
@@ -128,10 +129,11 @@ export function SortableSection({
                   <label htmlFor={`${item.id}-description`} className="text-base font-semibold">
                     Description
                   </label>
-                  <Input
-                    id={`${item.id}-description`}
-                    value={item.description}
-                    onChange={(e) => onItemChange(item.id, "description", e.target.value)}
+                  <RichTextEditor
+                    initialContent={item.description}
+                    onChange={(value) => onItemChange(item.id, "description", value)}
+                    placeholder="Enter a detailed description..."
+                    className="min-h-[150px]"
                   />
                 </div>
                 <Button

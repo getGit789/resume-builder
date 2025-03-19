@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { GripVertical, Pen, Plus, Trash2, FileText, Award, Users, Briefcase, Sparkles } from "lucide-react"
-import { SimpleRichTextEditor } from "./simple-rich-text-editor"
+import { RichTextEditor } from "./rich-text-editor"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { motion, AnimatePresence } from "framer-motion"
@@ -31,6 +31,45 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
   }))
 
   function handlePersonalInfoChange(field: keyof PersonalInfo, value: string) {
+    // If the field is summary, ensure it's valid JSON
+    if (field === "summary") {
+      try {
+        // If it's already JSON, keep it as is
+        JSON.parse(value);
+      } catch (e) {
+        // If not JSON, create a simple Lexical JSON structure
+        value = JSON.stringify({
+          root: {
+            children: [
+              {
+                children: [
+                  {
+                    detail: 0,
+                    format: 0,
+                    mode: "normal",
+                    style: "",
+                    text: value,
+                    type: "text",
+                    version: 1
+                  }
+                ],
+                direction: "ltr",
+                format: "",
+                indent: 0,
+                type: "paragraph",
+                version: 1
+              }
+            ],
+            direction: "ltr",
+            format: "",
+            indent: 0,
+            type: "root",
+            version: 1
+          }
+        });
+      }
+    }
+
     onResumeChange({
       ...resume,
       data: {
@@ -148,6 +187,45 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
   }
 
   function handleItemChange(sectionId: string, itemId: string, field: keyof SectionItem, value: string) {
+    // If the field is description, ensure it's valid JSON
+    if (field === "description") {
+      try {
+        // If it's already JSON, keep it as is
+        JSON.parse(value);
+      } catch (e) {
+        // If not JSON, create a simple Lexical JSON structure
+        value = JSON.stringify({
+          root: {
+            children: [
+              {
+                children: [
+                  {
+                    detail: 0,
+                    format: 0,
+                    mode: "normal",
+                    style: "",
+                    text: value,
+                    type: "text",
+                    version: 1
+                  }
+                ],
+                direction: "ltr",
+                format: "",
+                indent: 0,
+                type: "paragraph",
+                version: 1
+              }
+            ],
+            direction: "ltr",
+            format: "",
+            indent: 0,
+            type: "root",
+            version: 1
+          }
+        });
+      }
+    }
+
     onResumeChange({
       ...resume,
       data: {
@@ -304,14 +382,11 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
               </AccordionTrigger>
               <AccordionContent>
                 <div className="space-y-2 pt-2">
-                  <SimpleRichTextEditor
-                    value={resume.data.personalInfo.summary}
+                  <RichTextEditor
+                    initialContent={resume.data.personalInfo.summary}
                     onChange={(value) => handlePersonalInfoChange("summary", value)}
                     placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
-                    showCharacterCount
-                    characterLimit={400}
-                    aiSuggestionType="summary"
-                    jobTitle={resume.data.personalInfo.title}
+                    className="min-h-[150px]"
                   />
                 </div>
               </AccordionContent>

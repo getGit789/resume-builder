@@ -38,6 +38,18 @@ model Resume {
   shareToken    String?   @unique
   guestToken    String?   // Token to track resumes created by guest users
   exports       Export[]
+  experiences   Json[]    @default([])
+  education     Json[]    @default([])
+  skills        Json[]    @default([])
+  projects      Json[]    @default([])
+  certifications Json[]   @default([])
+  languages     Json[]    @default([])
+  references    Json[]    @default([])
+  achievements  Json[]    @default([])
+  publications  Json[]    @default([])
+  volunteer     Json[]    @default([])
+  interests     Json[]    @default([])
+  customSections Json[]   @default([])
 }
 
 model Export {

@@ -17,7 +17,7 @@ interface AutoSaveResult {
 
 export function useAutoSave({
   onSave,
-  debounceMs = 1000,
+  debounceMs = 2000,
   autoSaveEnabled = true,
 }: AutoSaveOptions): AutoSaveResult {
   const [isSaving, setIsSaving] = useState(false);
@@ -27,6 +27,7 @@ export function useAutoSave({
   
   const timeoutRef = useRef<NodeJS.Timeout>();
   const onSaveRef = useRef(onSave);
+  const hasChangesRef = useRef(false);
   
   // Update onSave ref when the function changes
   useEffect(() => {
@@ -46,9 +47,19 @@ export function useAutoSave({
   useEffect(() => {
     if (!autoSaveEnabled) return;
     
+    // Mark that we have pending changes
     setHasPendingChanges(true);
+    hasChangesRef.current = true;
+    
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
     
     timeoutRef.current = setTimeout(async () => {
+      // Only save if we actually have changes
+      if (!hasChangesRef.current) return;
+      
       try {
         setIsSaving(true);
         setError(null);
@@ -57,6 +68,7 @@ export function useAutoSave({
         
         setLastSaved(new Date());
         setHasPendingChanges(false);
+        hasChangesRef.current = false;
       } catch (err) {
         setError(err instanceof Error ? err : new Error("Failed to save"));
       } finally {
@@ -77,4 +89,4 @@ export function useAutoSave({
     error,
     hasPendingChanges
   };
-} 
+}

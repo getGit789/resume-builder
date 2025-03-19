@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/app/api/auth/[...nextauth]/route"
 import { prisma } from "@/lib/prisma"
 import { AuthUser } from "@/types/resume"
+import { verify } from "jsonwebtoken"
 
 /**
  * Extract the auth token from the request headers
@@ -43,30 +44,33 @@ export async function getCurrentUser(request: Request | NextRequest): Promise<Au
     
     if (!session?.user?.email) {
       // Check for guest mode cookie
-      const cookies = request.headers.get('cookie')
-      const isGuestMode = cookies?.includes('guestMode=true')
+      const cookies = request.headers.get('cookie') || ''
+      const isGuestMode = cookies.includes('guestMode=true')
       
       if (isGuestMode) {
-        // Generate or retrieve guest token from cookies
-        const guestTokenMatch = cookies?.match(/guestToken=([^;]+)/)
+        // Extract guest token from cookies with a more robust pattern
+        const guestTokenRegex = /guestToken=([^;]+)/
+        const guestTokenMatch = cookies.match(guestTokenRegex)
         const guestToken = guestTokenMatch?.[1] || `guest-${Date.now()}`
+        
+        console.log('Using guest mode with token:', guestToken)
         
         // If no guestToken cookie exists, we'll need to set it in the response
         if (!guestTokenMatch) {
-          // Note: The caller will need to handle setting this cookie
           console.log('New guest token generated:', guestToken)
         }
         
         return {
           id: guestToken,
           name: 'Guest User',
-          email: `guest-${guestToken}@example.com`,
+          email: `guest-${guestToken.substring(0, 8)}@example.com`,
           createdAt: new Date(),
           isGuest: true,
           guestToken,
         }
       }
       
+      console.log('No session or guest mode found')
       return null
     }
     
@@ -82,6 +86,7 @@ export async function getCurrentUser(request: Request | NextRequest): Promise<Au
     })
     
     if (!user) {
+      console.log('User not found in database:', session.user.email)
       return null
     }
     

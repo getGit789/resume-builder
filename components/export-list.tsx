@@ -43,6 +43,17 @@ import { Progress } from '@/components/ui/progress';
 import { useExportStore } from '@/store/use-export-store';
 import { useUIStore } from '@/store/use-ui-store';
 
+interface Export {
+  id: string;
+  resumeId: string;
+  resume: { name: string };
+  format: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  url?: string;
+  createdAt: string;
+  error?: string;
+}
+
 export default function ExportList() {
   const { toast } = useToast();
   
@@ -150,13 +161,13 @@ export default function ExportList() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
+        return <Badge variant="outline" className="bg-yellow-50/50 text-yellow-700 border-yellow-200">Pending</Badge>;
       case 'processing':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Processing</Badge>;
+        return <Badge variant="outline" className="bg-blue-50/50 text-blue-700 border-blue-200">Processing</Badge>;
       case 'completed':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
+        return <Badge variant="outline" className="bg-green-50/50 text-green-700 border-green-200">Completed</Badge>;
       case 'failed':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Failed</Badge>;
+        return <Badge variant="outline" className="bg-red-50/50 text-red-700 border-red-200">Failed</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -193,27 +204,28 @@ export default function ExportList() {
   
   if (isLoading && !exports) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex justify-between items-center">
-          <h2 className="text-2xl font-bold">My Exports</h2>
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold tracking-tight">Your Exports</h2>
+            <p className="text-sm text-muted-foreground">Loading your exports...</p>
+          </div>
           <Button variant="outline" onClick={handleRefresh} disabled>
-            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+            <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <Card key={i} className="overflow-hidden">
-              <CardHeader className="pb-2">
+              <CardHeader className="pb-0">
                 <Skeleton className="h-6 w-3/4" />
                 <Skeleton className="h-4 w-1/2" />
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-4">
                 <Skeleton className="h-4 w-full mb-2" />
-                <Skeleton className="h-4 w-2/3" />
-              </CardContent>
-              <CardFooter>
+                <Skeleton className="h-2 w-full mb-4" />
                 <Skeleton className="h-9 w-full" />
-              </CardFooter>
+              </CardContent>
             </Card>
           ))}
         </div>
@@ -223,10 +235,12 @@ export default function ExportList() {
   
   if (error) {
     return (
-      <div className="text-center py-8">
-        <h2 className="text-2xl font-bold text-red-500">Error</h2>
-        <p className="mt-2">{error}</p>
-        <Button onClick={() => fetchExports()} className="mt-4">
+      <div className="text-center py-10 border-2 border-dashed rounded-lg">
+        <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
+        <h3 className="mt-4 text-lg font-semibold text-red-500">Error loading exports</h3>
+        <p className="mt-2 text-sm text-muted-foreground">{error}</p>
+        <Button onClick={handleRefresh} className="mt-4">
+          <RefreshCw className="mr-2 h-4 w-4" />
           Try Again
         </Button>
       </div>
@@ -234,53 +248,54 @@ export default function ExportList() {
   }
   
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 px-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">My Exports</h2>
-        <Button variant="outline" onClick={handleRefresh}>
-          <RefreshCw className="mr-2 h-4 w-4" /> Refresh
+        <div className="space-y-1 text-left">
+          <h2 className="text-2xl font-semibold tracking-tight">Your Exports</h2>
+          <p className="text-sm text-muted-foreground">
+            {exports?.length 
+              ? `You have ${exports.length} export${exports.length === 1 ? '' : 's'}`
+              : 'No exports yet'
+            }
+          </p>
+        </div>
+        <Button onClick={handleRefresh} variant="outline" size="icon">
+          <RefreshCw className="h-4 w-4" />
         </Button>
       </div>
       
-      {exports && exports.length === 0 ? (
-        <div className="text-center py-12 border rounded-lg">
-          <h3 className="text-xl font-medium">No exports yet</h3>
-          <p className="text-muted-foreground mt-2">
-            Export a resume to see it here
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {exports?.map((exportItem) => (
-            <Card key={exportItem.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
+      {exports && exports.length > 0 ? (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {exports.map((exportItem) => (
+            <Card key={exportItem.id} className="group overflow-hidden hover:shadow-lg transition-all">
+              <CardHeader className="pb-0">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="flex items-center">
-                      {getFormatIcon(exportItem.format)}
-                      {exportItem.format.toUpperCase()}
-                    </CardTitle>
-                    <CardDescription>
-                      Resume ID: {exportItem.resumeId.slice(0, 8)}...
+                  <div className="space-y-1 text-left">
+                    <CardTitle className="text-lg line-clamp-1">Export {exportItem.format.toUpperCase()}</CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <FileText className="h-3 w-3" />
+                      {formatDistanceToNow(new Date(exportItem.createdAt), { addSuffix: true })}
                     </CardDescription>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-48">
                       {exportItem.status === 'completed' && (
-                        <DropdownMenuItem 
-                          onClick={() => window.open(exportItem.url, '_blank')}
-                        >
+                        <DropdownMenuItem onClick={() => window.open(exportItem.url, '_blank')}>
                           <Download className="mr-2 h-4 w-4" /> Download
                         </DropdownMenuItem>
                       )}
                       <DropdownMenuItem 
                         onClick={() => handleDeleteClick(exportItem.id)}
-                        className="text-red-500 focus:text-red-500"
+                        className="text-red-600 focus:text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
@@ -288,50 +303,36 @@ export default function ExportList() {
                   </DropdownMenu>
                 </div>
               </CardHeader>
-              <CardContent>
-                <div className="flex justify-between items-center mb-2">
-                  <div>Status: {getStatusBadge(exportItem.status)}</div>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  Created {formatDistanceToNow(new Date(exportItem.createdAt), { addSuffix: true })}
-                </p>
-                {renderProgressBar(exportItem)}
-                {exportItem.status === 'failed' && exportItem.error && (
-                  <div className="mt-2 text-sm text-red-500 flex items-start">
-                    <AlertCircle className="h-4 w-4 mr-1 mt-0.5 flex-shrink-0" />
-                    <span>{exportItem.error}</span>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-2 flex-1">
+                    {getStatusBadge(exportItem.status)}
+                    <span className="text-sm text-muted-foreground">
+                      {exportItem.format.toUpperCase()}
+                    </span>
                   </div>
-                )}
+                  {exportItem.status === 'completed' && (
+                    <Button 
+                      variant="secondary" 
+                      size="sm"
+                      className="justify-start"
+                      onClick={() => window.open(exportItem.url, '_blank')}
+                    >
+                      <Download className="mr-2 h-4 w-4" /> Download
+                    </Button>
+                  )}
+                </div>
               </CardContent>
-              <CardFooter>
-                {exportItem.status === 'completed' ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => window.open(exportItem.url, '_blank')}
-                  >
-                    <Download className="mr-2 h-4 w-4" /> Download
-                  </Button>
-                ) : exportItem.status === 'failed' ? (
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    disabled
-                  >
-                    <AlertCircle className="mr-2 h-4 w-4" /> Failed
-                  </Button>
-                ) : (
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    disabled
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> Processing
-                  </Button>
-                )}
-              </CardFooter>
             </Card>
           ))}
+        </div>
+      ) : (
+        <div className="text-left py-10 border-2 border-dashed rounded-lg px-6">
+          <FileText className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-semibold">No exports yet</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Export a resume to see it here
+          </p>
         </div>
       )}
       

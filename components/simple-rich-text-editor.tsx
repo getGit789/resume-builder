@@ -1,9 +1,9 @@
 "use client"
 
-import { Bold, Italic, Link, List, Strikethrough } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { Bold, Italic, Link, List, Strikethrough, Underline } from "lucide-react"
+import { useEffect, useRef, useState, useMemo } from "react"
 import { Button } from "./ui/button"
-import { cn } from "@/lib/utils"
+import { cn, debounce } from "@/lib/utils"
 import styles from "./rich-text-editor.module.css"
 import { AISuggestionButton } from "./ai-suggestion-button"
 
@@ -113,10 +113,28 @@ export function SimpleRichTextEditor({
   const [formatState, setFormatState] = useState({
     bold: false,
     italic: false,
+    underline: false,
     strikethrough: false,
     list: false,
-    link: false
+    link: false,
+    hasSelection: false
   });
+
+  // Create a debounced version of the onChange handler
+  const debouncedOnChange = useMemo(
+    () => debounce((content: string) => {
+      onChange(content);
+    }, 300),
+    [onChange]
+  );
+
+  // Define a local handlePaste function to handle paste events inline
+  const handlePaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    const text = e.clipboardData.getData('text/plain');
+    document.execCommand('insertText', false, text);
+    handleInput(); // Update the content after pasting
+  };
 
   // Initialize content when value changes from outside
   useEffect(() => {
@@ -153,9 +171,11 @@ export function SimpleRichTextEditor({
     setFormatState({
       bold: document.queryCommandState('bold'),
       italic: document.queryCommandState('italic'),
+      underline: document.queryCommandState('underline'),
       strikethrough: document.queryCommandState('strikethrough'),
       list: document.queryCommandState('insertUnorderedList'),
-      link: document.queryCommandState('createLink')
+      link: document.queryCommandState('createLink'),
+      hasSelection: document.queryCommandState('hasSelection')
     });
   };
 
@@ -244,7 +264,7 @@ export function SimpleRichTextEditor({
     // Update content
     const content = editorRef.current.innerHTML;
     const sanitized = sanitizeHtml(content);
-    onChange(sanitized);
+    debouncedOnChange(sanitized);
     
     // Update format state
     updateFormatState();
@@ -260,7 +280,7 @@ export function SimpleRichTextEditor({
     setShowPlaceholder(isEmpty);
     
     if (isEmpty) {
-      onChange('');
+      debouncedOnChange('');
     } else {
       // Fix list formatting
       let fixedContent = content;
@@ -292,7 +312,7 @@ export function SimpleRichTextEditor({
         fixedContent = tempDiv.innerHTML;
       }
       
-      onChange(sanitizeHtml(fixedContent));
+      debouncedOnChange(sanitizeHtml(fixedContent));
     }
     
     // Update format state
@@ -423,7 +443,7 @@ export function SimpleRichTextEditor({
       
       // Update state and trigger onChange
       setShowPlaceholder(false);
-      onChange(sanitizeHtml(editorRef.current.innerHTML));
+      debouncedOnChange(sanitizeHtml(editorRef.current.innerHTML));
       
       // Update format state
       updateFormatState();
@@ -440,117 +460,105 @@ export function SimpleRichTextEditor({
             </p>
             {aiSuggestionType && (
               <AISuggestionButton 
-                type={aiSuggestionType} 
+                type={aiSuggestionType}
                 jobTitle={jobTitle}
                 onSelectSuggestion={handleAISuggestion}
+                variant="ghost"
+                size="sm"
               />
             )}
           </div>
         )}
         
-        {showFormatting && (
-          <div className="flex items-center space-x-1 mb-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-0 ${formatState.bold ? "bg-primary/20 text-primary" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent losing focus
-                handleFormat("bold");
-              }}
-              title="Bold"
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-0 ${formatState.italic ? "bg-primary/20 text-primary" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent losing focus
-                handleFormat("italic");
-              }}
-              title="Italic"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-0 ${formatState.strikethrough ? "bg-primary/20 text-primary" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent losing focus
-                handleFormat("strikethrough");
-              }}
-              title="Strikethrough"
-            >
-              <Strikethrough className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-0 ${formatState.list ? "bg-primary/20 text-primary" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent losing focus
-                handleFormat("insertUnorderedList");
-              }}
-              title="Bullet List"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={`h-8 w-8 p-0 ${formatState.link ? "bg-primary/20 text-primary" : ""}`}
-              onMouseDown={(e) => {
-                e.preventDefault(); // Prevent losing focus
-                handleFormat("createLink");
-              }}
-              title="Insert Link"
-            >
-              <Link className="h-4 w-4" />
-            </Button>
-            
-            {/* If no placeholder is provided, show the AI suggestion button here */}
-            {aiSuggestionType && !placeholder && (
-              <div className="ml-auto">
-                <AISuggestionButton 
-                  type={aiSuggestionType} 
-                  jobTitle={jobTitle}
-                  onSelectSuggestion={handleAISuggestion}
-                />
-              </div>
-            )}
-          </div>
-        )}
-        <div className="relative">
+        <div className="relative border rounded-md">
+          {showFormatting && (
+            <div className="flex items-center gap-1 px-3 py-1 border-b bg-muted/30">
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded hover:bg-muted transition-colors",
+                  formatState.bold && "bg-muted"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing focus
+                  handleFormat('bold');
+                }}
+                title="Bold"
+              >
+                <Bold className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded hover:bg-muted transition-colors",
+                  formatState.italic && "bg-muted"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing focus
+                  handleFormat('italic');
+                }}
+                title="Italic"
+              >
+                <Italic className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded hover:bg-muted transition-colors",
+                  formatState.underline && "bg-muted"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing focus
+                  handleFormat('underline');
+                }}
+                title="Underline"
+              >
+                <Underline className="h-4 w-4" />
+              </button>
+              <div className="w-px h-4 bg-border mx-1" />
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded hover:bg-muted transition-colors",
+                  formatState.list && "bg-muted"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing focus
+                  handleFormat('insertUnorderedList');
+                }}
+                title="Bullet List"
+              >
+                <List className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                className={cn(
+                  "p-1 rounded hover:bg-muted transition-colors",
+                  formatState.link && "bg-muted"
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault(); // Prevent losing focus
+                  handleFormat('createLink');
+                }}
+                title="Insert Link"
+                disabled={!formatState.hasSelection}
+              >
+                <Link className={cn("h-4 w-4", !formatState.hasSelection && "opacity-50")} />
+              </button>
+            </div>
+          )}
+          
           <div
             ref={editorRef}
+            className="px-3 py-2 min-h-[100px] max-h-[300px] overflow-y-auto prose prose-sm focus:outline-none"
             contentEditable
-            className={cn(
-              "min-h-[100px] p-3 rounded-md border focus:outline-none focus:ring-2 focus:ring-ring",
-              isEditing && "ring-2 ring-ring",
-              styles.richTextEditor,
-              className
-            )}
-            style={{
-              userSelect: 'text',
-              WebkitUserSelect: 'text',
-              MozUserSelect: 'text',
-              msUserSelect: 'text',
-              cursor: 'text',
-              whiteSpace: 'normal',
-              wordBreak: 'break-word'
-            }}
+            onInput={handleInput}
+            onKeyDown={handleKeyDown}
             onFocus={() => {
               setIsEditing(true);
               if (showPlaceholder && editorRef.current) {
                 editorRef.current.innerHTML = '';
+                setShowPlaceholder(false);
               }
               updateFormatState();
             }}
@@ -563,29 +571,21 @@ export function SimpleRichTextEditor({
                 if (isEmpty) {
                   editorRef.current.innerHTML = '';
                   setShowPlaceholder(true);
-                  onChange('');
+                  debouncedOnChange('');
                 } else {
-                  onChange(sanitizeHtml(content));
+                  debouncedOnChange(sanitizeHtml(content));
                 }
               }
             }}
-            onInput={handleInput}
-            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
           />
-        </div>
-        
-        {showCharacterCount && (
-          <div className="flex flex-col space-y-1">
-            <p className="text-xs text-muted-foreground">
-              Recruiter tip: write 400-600 characters to increase interview chances
-            </p>
-            <div className="flex justify-end">
-              <span className={cn("text-sm", characterCount > characterLimit ? "text-primary" : "text-muted-foreground")}>
-                {characterCount} / {characterLimit}+
-              </span>
+          
+          {showPlaceholder && (
+            <div className="absolute top-[42px] left-3 text-muted-foreground pointer-events-none">
+              {placeholder || "Type something..."}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

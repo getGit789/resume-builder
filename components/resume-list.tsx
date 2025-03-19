@@ -210,36 +210,54 @@ export default function ResumeList() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 px-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Your Resumes</h2>
-        <Button onClick={handleCreateNew}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create New
-        </Button>
+        <div className="space-y-1 text-left">
+          <h2 className="text-2xl font-semibold tracking-tight">Your Resumes</h2>
+          <p className="text-sm text-muted-foreground">
+            {resumes?.length 
+              ? `You have ${resumes.length} resume${resumes.length === 1 ? '' : 's'}`
+              : 'Create your first resume'
+            }
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleRefresh} variant="outline" size="icon">
+            <RefreshCw className="h-4 w-4" />
+          </Button>
+          <Button onClick={handleCreateNew}>
+            <Plus className="mr-2 h-4 w-4" />
+            Create New
+          </Button>
+        </div>
       </div>
       
       {resumes && resumes.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {resumes.map((resume) => (
-            <Card key={resume.id} className="overflow-hidden">
-              <CardHeader className="pb-2">
+            <Card key={resume.id} className="group overflow-hidden hover:shadow-lg transition-all">
+              <CardHeader className="pb-0">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">{resume.name}</CardTitle>
-                    <CardDescription>
+                  <div className="space-y-1 text-left">
+                    <CardTitle className="text-lg line-clamp-1">{resume.name}</CardTitle>
+                    <CardDescription className="flex items-center gap-2">
+                      <FileText className="h-3 w-3" />
                       {formatDate(resume.updatedAt)}
                     </CardDescription>
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
+                      <Button 
+                        variant="ghost" 
+                        size="icon"
+                        className="opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
                         <MoreVertical className="h-4 w-4" />
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                    <DropdownMenuContent align="end" className="w-48">
                       <DropdownMenuItem onClick={() => handleEditResume(resume.id)}>
-                        <FileEdit className="mr-2 h-4 w-4" /> Edit
+                        <FileEdit className="mr-2 h-4 w-4" /> Edit Resume
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handlePreviewClick(resume)}>
                         <Eye className="mr-2 h-4 w-4" /> Preview
@@ -252,7 +270,7 @@ export default function ResumeList() {
                       </DropdownMenuItem>
                       <DropdownMenuItem 
                         onClick={() => handleDeleteClick(resume.id)}
-                        className="text-red-500 focus:text-red-500"
+                        className="text-red-600 focus:text-red-600"
                       >
                         <Trash2 className="mr-2 h-4 w-4" /> Delete
                       </DropdownMenuItem>
@@ -260,64 +278,45 @@ export default function ResumeList() {
                   </DropdownMenu>
                 </div>
               </CardHeader>
-              <CardContent className="pb-2">
-                <div className="flex items-center text-sm text-muted-foreground">
-                  <div className="flex items-center mr-4">
-                    <FileText className="mr-1 h-4 w-4" />
-                    {resume.template.charAt(0).toUpperCase() + resume.template.slice(1)}
-                  </div>
-                  <div 
-                    className="w-3 h-3 rounded-full mr-1"
-                    style={{ 
-                      backgroundColor: 
-                        resume.colorTheme === 'blue' ? '#3B82F6' :
-                        resume.colorTheme === 'green' ? '#10B981' :
-                        resume.colorTheme === 'purple' ? '#8B5CF6' :
-                        resume.colorTheme === 'red' ? '#EF4444' :
-                        resume.colorTheme === 'orange' ? '#F97316' :
-                        resume.colorTheme === 'teal' ? '#14B8A6' :
-                        '#000000'
-                    }}
-                  />
-                  <span>
-                    {resume.colorTheme.charAt(0).toUpperCase() + resume.colorTheme.slice(1)}
-                  </span>
+              <CardContent className="pt-4">
+                <div className="flex gap-2">
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="flex-1 justify-start"
+                    onClick={() => handleEditResume(resume.id)}
+                  >
+                    <FileEdit className="mr-2 h-4 w-4" /> Edit
+                  </Button>
+                  <Button 
+                    variant="secondary" 
+                    size="sm" 
+                    className="flex-1 justify-start"
+                    onClick={() => handleExportClick(resume.id)}
+                  >
+                    <Download className="mr-2 h-4 w-4" /> Export
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0"
+                    onClick={() => handlePreviewClick(resume)}
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                 </div>
               </CardContent>
-              <CardFooter className="flex justify-between pt-2">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleEditResume(resume.id)}
-                >
-                  <FileEdit className="mr-2 h-4 w-4" />
-                  Edit
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  onClick={() => handleExportClick(resume.id)}
-                >
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </CardFooter>
             </Card>
           ))}
         </div>
       ) : (
-        <div className="text-center py-10 border rounded-lg">
-          <div className="mb-4 flex justify-center">
-            <div className="relative w-24 h-24">
-              <File className="w-24 h-24 text-muted-foreground/30" />
-              <Plus className="w-8 h-8 text-muted-foreground/50 absolute bottom-0 right-0" />
-            </div>
-          </div>
-          <h3 className="text-lg font-medium mb-2">No resumes yet</h3>
-          <p className="text-muted-foreground mb-4">
+        <div className="text-left py-10 border-2 border-dashed rounded-lg px-6">
+          <FileText className="h-12 w-12 text-muted-foreground" />
+          <h3 className="mt-4 text-lg font-semibold">No resumes yet</h3>
+          <p className="mt-2 text-sm text-muted-foreground">
             Create your first resume to get started
           </p>
-          <Button onClick={handleCreateNew}>
+          <Button onClick={handleCreateNew} className="mt-4">
             <Plus className="mr-2 h-4 w-4" />
             Create New Resume
           </Button>
