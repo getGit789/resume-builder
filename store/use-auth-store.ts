@@ -1,10 +1,12 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { v4 as uuidv4 } from 'uuid'
 
 export interface User {
   id: string
   name: string
   email: string
+  isGuest?: boolean
 }
 
 interface AuthState {
@@ -12,6 +14,7 @@ interface AuthState {
   user: User | null
   token: string | null
   isAuthenticated: boolean
+  isGuest: boolean
   isLoading: boolean
   error: string | null
   
@@ -21,6 +24,10 @@ interface AuthState {
   logout: () => void
   checkAuth: () => Promise<boolean>
   clearError: () => void
+  
+  // Guest actions
+  continueAsGuest: () => void
+  isGuestUser: () => boolean
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -30,6 +37,7 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       token: null,
       isAuthenticated: false,
+      isGuest: false,
       isLoading: false,
       error: null,
       
@@ -59,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
             user: data.user,
             token: data.token,
             isAuthenticated: true,
+            isGuest: false,
             isLoading: false,
           })
           
@@ -114,6 +123,7 @@ export const useAuthStore = create<AuthState>()(
           user: null,
           token: null,
           isAuthenticated: false,
+          isGuest: false,
         })
         
         // Remove token from localStorage
@@ -122,7 +132,12 @@ export const useAuthStore = create<AuthState>()(
       
       // Check if user is authenticated
       checkAuth: async () => {
-        const { token } = get()
+        const { token, isGuest } = get()
+        
+        // If user is in guest mode, they are not authenticated but still have access
+        if (isGuest) {
+          return false
+        }
         
         if (!token) {
           return false
@@ -148,6 +163,7 @@ export const useAuthStore = create<AuthState>()(
           set({
             user: data.user,
             isAuthenticated: true,
+            isGuest: false,
           })
           
           return true
@@ -156,6 +172,29 @@ export const useAuthStore = create<AuthState>()(
           get().logout()
           return false
         }
+      },
+      
+      // Continue as guest user
+      continueAsGuest: () => {
+        const guestId = uuidv4()
+        
+        set({
+          user: {
+            id: guestId,
+            name: "Guest User",
+            email: `guest-${guestId}@example.com`,
+            isGuest: true
+          },
+          isAuthenticated: false,
+          isGuest: true,
+          error: null,
+        })
+      },
+      
+      // Check if current user is a guest
+      isGuestUser: () => {
+        const { user, isGuest } = get()
+        return isGuest || (user?.isGuest ?? false)
       },
       
       // Clear error
@@ -170,6 +209,7 @@ export const useAuthStore = create<AuthState>()(
         user: state.user,
         token: state.token,
         isAuthenticated: state.isAuthenticated,
+        isGuest: state.isGuest,
       }),
     }
   )

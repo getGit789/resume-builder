@@ -48,6 +48,7 @@ interface ResumeState {
   shareResume: (id: string, isPublic?: boolean) => Promise<{ shareToken: string } | null>;
   setSelectedResumeId: (id: string | null) => void;
   setGuestMode: (enabled: boolean) => void;
+  ensureGuestMode: () => void;
   clearError: () => void;
 }
 
@@ -60,18 +61,18 @@ export const useResumeStore = create<ResumeState>()(
       const existingGuestToken = isClient ? getCookieValue('guestToken') : null;
       
       return {
-        // Initial state
-        resumes: [],
-        selectedResumeId: null,
+      // Initial state
+      resumes: [],
+      selectedResumeId: null,
         guestMode: existingGuestMode,
         guestToken: existingGuestToken,
-        isLoading: false,
-        error: null,
-        
-        // Actions
-        fetchResumes: async () => {
-          set({ isLoading: true, error: null });
-          try {
+      isLoading: false,
+      error: null,
+      
+      // Actions
+      fetchResumes: async () => {
+        set({ isLoading: true, error: null });
+        try {
             // If we're already in guest mode, include the guest token in request headers
             const headers: HeadersInit = {};
             if (get().guestMode && get().guestToken) {
@@ -84,8 +85,8 @@ export const useResumeStore = create<ResumeState>()(
               credentials: 'include',
               headers
             });
-            
-            if (!response.ok) {
+          
+          if (!response.ok) {
               console.log(`Failed to fetch resumes with status: ${response.status}`);
               
               if (response.status === 401) {
@@ -112,24 +113,24 @@ export const useResumeStore = create<ResumeState>()(
                 }
               }
               
-              throw new Error('Failed to fetch resumes');
-            }
-            
-            const resumes = await response.json();
-            console.log(`Successfully fetched ${resumes.length} resumes`);
-            set({ resumes, isLoading: false });
-          } catch (error) {
-            console.error('Error fetching resumes:', error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
+            throw new Error('Failed to fetch resumes');
           }
-        },
-        
-        fetchResume: async (id: string) => {
-          set({ isLoading: true, error: null });
-          try {
+          
+          const resumes = await response.json();
+            console.log(`Successfully fetched ${resumes.length} resumes`);
+          set({ resumes, isLoading: false });
+        } catch (error) {
+          console.error('Error fetching resumes:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
+        }
+      },
+      
+      fetchResume: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
             // Include the guest token in headers if in guest mode
             const headers: HeadersInit = {};
             if (get().guestMode && get().guestToken) {
@@ -142,8 +143,8 @@ export const useResumeStore = create<ResumeState>()(
               credentials: 'include',
               headers
             });
-            
-            if (!response.ok) {
+          
+          if (!response.ok) {
               console.log(`Failed to fetch resume with status: ${response.status}`);
               
               if (response.status === 401) {
@@ -168,32 +169,32 @@ export const useResumeStore = create<ResumeState>()(
                 }
               }
               
-              throw new Error('Failed to fetch resume');
-            }
-            
-            const resume = await response.json();
-            console.log(`Successfully fetched resume ${id}`);
-            
-            // Update the resume in the store if it exists
-            set(state => ({
-              resumes: state.resumes.map(r => r.id === id ? resume : r),
-              isLoading: false
-            }));
-            
-            return resume;
-          } catch (error) {
-            console.error(`Error fetching resume ${id}:`, error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
-            return null;
+            throw new Error('Failed to fetch resume');
           }
-        },
-        
-        createResume: async (name: string, data: ResumeData, template = 'professional', colorTheme = 'default') => {
-          set({ isLoading: true, error: null });
-          try {
+          
+          const resume = await response.json();
+            console.log(`Successfully fetched resume ${id}`);
+          
+          // Update the resume in the store if it exists
+          set(state => ({
+            resumes: state.resumes.map(r => r.id === id ? resume : r),
+            isLoading: false
+          }));
+          
+          return resume;
+        } catch (error) {
+          console.error(`Error fetching resume ${id}:`, error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
+          return null;
+        }
+      },
+      
+      createResume: async (name: string, data: ResumeData, template = 'professional', colorTheme = 'default') => {
+        set({ isLoading: true, error: null });
+        try {
             // Ensure guest mode is active if not logged in
             if (!get().guestMode) {
               const guestToken = `guest-${Date.now()}`;
@@ -224,8 +225,8 @@ export const useResumeStore = create<ResumeState>()(
               headers['X-Guest-Token'] = get().guestToken || '';
             }
             
-            const response = await fetch('/api/resumes', {
-              method: 'POST',
+          const response = await fetch('/api/resumes', {
+            method: 'POST',
               credentials: 'include',
               headers,
               body: JSON.stringify({ 
@@ -236,9 +237,9 @@ export const useResumeStore = create<ResumeState>()(
                 // Include guestToken in the request body if in guest mode
                 ...(get().guestMode ? { guestToken: get().guestToken } : {})
               }),
-            });
-            
-            if (!response.ok) {
+          });
+          
+          if (!response.ok) {
               // Get the error details from the response if available
               let errorDetails = '';
               try {
@@ -264,32 +265,32 @@ export const useResumeStore = create<ResumeState>()(
               }
               
               throw new Error(`Failed to create resume: ${errorDetails}`);
-            }
-            
-            const newResume = await response.json();
+          }
+          
+          const newResume = await response.json();
             console.log('Resume created successfully:', newResume.id);
-            
-            // Add the new resume to the store
-            set(state => ({
-              resumes: [newResume, ...state.resumes],
+          
+          // Add the new resume to the store
+          set(state => ({
+            resumes: [newResume, ...state.resumes],
               isLoading: false,
               selectedResumeId: newResume.id // Set the newly created resume as selected
-            }));
-            
-            return newResume;
-          } catch (error) {
-            console.error('Error creating resume:', error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
-            return null;
-          }
-        },
-        
-        updateResume: async (id: string, updates: Partial<Resume>) => {
-          set({ isLoading: true, error: null });
-          try {
+          }));
+          
+          return newResume;
+        } catch (error) {
+          console.error('Error creating resume:', error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
+          return null;
+        }
+      },
+      
+      updateResume: async (id: string, updates: Partial<Resume>) => {
+        set({ isLoading: true, error: null });
+        try {
             // Include the guest token in headers if in guest mode
             const headers: HeadersInit = {
               'Content-Type': 'application/json'
@@ -301,8 +302,8 @@ export const useResumeStore = create<ResumeState>()(
             
             console.log(`Updating resume ${id}, guest mode:`, get().guestMode);
             
-            const response = await fetch(`/api/resumes/${id}`, {
-              method: 'PUT',
+          const response = await fetch(`/api/resumes/${id}`, {
+            method: 'PUT',
               credentials: 'include',
               headers,
               body: JSON.stringify({
@@ -310,9 +311,9 @@ export const useResumeStore = create<ResumeState>()(
                 // Include guestToken in the request body if in guest mode
                 ...(get().guestMode ? { guestToken: get().guestToken } : {})
               }),
-            });
-            
-            if (!response.ok) {
+          });
+          
+          if (!response.ok) {
               console.log(`Failed to update resume with status: ${response.status}`);
               
               // Get error details
@@ -347,62 +348,62 @@ export const useResumeStore = create<ResumeState>()(
               }
               
               throw new Error(`Failed to update resume: ${errorDetails}`);
-            }
-            
-            const updatedResume = await response.json();
+          }
+          
+          const updatedResume = await response.json();
             console.log(`Successfully updated resume ${id}`);
-            
-            // Update the resume in the store
-            set(state => ({
-              resumes: state.resumes.map(r => r.id === id ? updatedResume : r),
-              isLoading: false
-            }));
-            
-            return updatedResume;
-          } catch (error) {
-            console.error(`Error updating resume ${id}:`, error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
-            return null;
+          
+          // Update the resume in the store
+          set(state => ({
+            resumes: state.resumes.map(r => r.id === id ? updatedResume : r),
+            isLoading: false
+          }));
+          
+          return updatedResume;
+        } catch (error) {
+          console.error(`Error updating resume ${id}:`, error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
+          return null;
+        }
+      },
+      
+      deleteResume: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await fetch(`/api/resumes/${id}`, {
+            method: 'DELETE',
+          });
+          
+          if (!response.ok) {
+            throw new Error('Failed to delete resume');
           }
-        },
-        
-        deleteResume: async (id: string) => {
-          set({ isLoading: true, error: null });
-          try {
-            const response = await fetch(`/api/resumes/${id}`, {
-              method: 'DELETE',
-            });
-            
-            if (!response.ok) {
-              throw new Error('Failed to delete resume');
-            }
-            
-            // Remove the resume from the store
-            set(state => ({
-              resumes: state.resumes.filter(r => r.id !== id),
-              isLoading: false
-            }));
-            
-            return true;
-          } catch (error) {
-            console.error(`Error deleting resume ${id}:`, error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
-            return false;
-          }
-        },
-        
+          
+          // Remove the resume from the store
+          set(state => ({
+            resumes: state.resumes.filter(r => r.id !== id),
+            isLoading: false
+          }));
+          
+          return true;
+        } catch (error) {
+          console.error(`Error deleting resume ${id}:`, error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
+          return false;
+        }
+      },
+      
         shareResume: async (id: string, isPublic?: boolean) => {
-          set({ isLoading: true, error: null });
-          try {
+        set({ isLoading: true, error: null });
+        try {
             // Create a request with optional isPublic parameter
             const requestOptions: RequestInit = {
-              method: 'POST',
+            method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
@@ -414,47 +415,47 @@ export const useResumeStore = create<ResumeState>()(
             }
             
             const response = await fetch(`/api/resumes/${id}/share`, requestOptions);
-            
-            if (!response.ok) {
+          
+          if (!response.ok) {
               const errorData = await response.json().catch(() => null);
               throw new Error(errorData?.error || 'Failed to share resume');
-            }
-            
-            const result = await response.json();
+          }
+          
+          const result = await response.json();
             
             if (!result || typeof result !== 'object') {
               throw new Error('Invalid response from server');
             }
-            
-            // Update the resume in the store with the share token
-            set(state => ({
-              resumes: state.resumes.map(r => 
-                r.id === id 
+          
+          // Update the resume in the store with the share token
+          set(state => ({
+            resumes: state.resumes.map(r => 
+              r.id === id 
                   ? { 
                       ...r, 
                       isPublic: result.isPublic || false, 
                       shareToken: result.shareToken || null 
                     } 
-                  : r
-              ),
-              isLoading: false
-            }));
-            
-            return result;
-          } catch (error) {
-            console.error(`Error sharing resume ${id}:`, error);
-            set({ 
-              error: error instanceof Error ? error.message : 'An unknown error occurred', 
-              isLoading: false 
-            });
+                : r
+            ),
+            isLoading: false
+          }));
+          
+          return result;
+        } catch (error) {
+          console.error(`Error sharing resume ${id}:`, error);
+          set({ 
+            error: error instanceof Error ? error.message : 'An unknown error occurred', 
+            isLoading: false 
+          });
             throw error; // Re-throw the error to allow consumers to handle it
-          }
-        },
-        
-        setSelectedResumeId: (id: string | null) => {
-          set({ selectedResumeId: id });
-        },
-        
+        }
+      },
+      
+      setSelectedResumeId: (id: string | null) => {
+        set({ selectedResumeId: id });
+      },
+      
         setGuestMode: (enabled: boolean) => {
           if (enabled) {
             const guestToken = `guest-${Date.now()}`;
@@ -468,6 +469,30 @@ export const useResumeStore = create<ResumeState>()(
           }
           // Clear resumes when switching modes
           set({ resumes: [] });
+        },
+        
+        ensureGuestMode: () => {
+          // Try to detect if the user is authenticated via NextAuth
+          const isNextAuthSession = typeof window !== 'undefined' && 
+                                  document.cookie.includes('next-auth.session-token');
+          
+          // Don't enable guest mode if a NextAuth session exists
+          if (isNextAuthSession) {
+            console.log('Authenticated user detected, not enabling guest mode');
+            // If guest mode was previously enabled, clear it
+            if (get().guestMode) {
+              set({ guestMode: false, guestToken: null });
+            }
+            return;
+          }
+          
+          // Only proceed with guest mode if user is not authenticated
+          if (!get().guestMode) {
+            const guestToken = `guest-${Date.now()}`;
+            document.cookie = `guestMode=true; path=/; max-age=2592000`; // 30 days
+            document.cookie = `guestToken=${guestToken}; path=/; max-age=2592000`;
+            set({ guestMode: true, guestToken });
+          }
         },
         
         clearError: () => set({ error: null }),

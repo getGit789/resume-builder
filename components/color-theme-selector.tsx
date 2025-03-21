@@ -16,6 +16,7 @@ const COLOR_THEMES: { id: ColorTheme; name: string; color: string }[] = [
   { id: "red", name: "Red", color: "#dc2626" },
   { id: "purple", name: "Purple", color: "#9333ea" },
   { id: "gray", name: "Gray", color: "#4b5563" },
+  { id: "black", name: "Black", color: "#000000" },
 ]
 
 interface ColorThemeSelectorProps {

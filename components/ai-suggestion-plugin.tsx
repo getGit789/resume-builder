@@ -12,6 +12,9 @@ import {
 } from "lexical";
 import { AISuggestionButton } from "./ai-suggestion-button";
 import { useCallback, useEffect } from "react";
+import { useAuthStore } from "@/store/use-auth-store";
+import { isFeatureAvailable } from "@/lib/feature-access";
+import { AuthUser } from "@/types/resume";
 
 // Create a custom command to handle suggestions
 export const INSERT_AI_SUGGESTION_COMMAND = createCommand('INSERT_AI_SUGGESTION_COMMAND');
@@ -23,6 +26,10 @@ interface AISuggestionPluginProps {
 
 export function AISuggestionPlugin({ fieldType, jobTitle }: AISuggestionPluginProps) {
   const [editor] = useLexicalComposerContext();
+  const { isAuthenticated } = useAuthStore();
+  
+  // Check if the user has access to AI suggestions based on authentication status
+  const hasAccess = isFeatureAvailable("aiSuggestions", isAuthenticated ? { isGuest: false } as AuthUser : null);
 
   // Create a stable callback for handling suggestions
   const handleSuggestion = useCallback((suggestion: string) => {
@@ -66,6 +73,11 @@ export function AISuggestionPlugin({ fieldType, jobTitle }: AISuggestionPluginPr
       COMMAND_PRIORITY_NORMAL
     );
   }, [editor]);
+
+  // If the user doesn't have access to this feature, don't render the button
+  if (!hasAccess) {
+    return null;
+  }
 
   return (
     <div className="flex items-center justify-end">

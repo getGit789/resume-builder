@@ -63,8 +63,9 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Ensure params.id is available
-    if (!params?.id) {
+    // Ensure params.id is available and awaited
+    const id = params?.id;
+    if (!id) {
       return new NextResponse('Resume ID is required', { status: 400 });
     }
     
@@ -78,7 +79,7 @@ export async function GET(
     }
     
     // Build query based on auth status
-    const where: any = { id: params.id };
+    const where: any = { id };
     
     // If user is authenticated, filter by user ID
     if (session?.user?.id) {
@@ -140,8 +141,9 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
-    // Ensure params.id is available
-    if (!params?.id) {
+    // Ensure params.id is available and awaited
+    const id = params?.id;
+    if (!id) {
       return new NextResponse('Resume ID is required', { status: 400 });
     }
     
@@ -155,7 +157,7 @@ export async function PUT(
     }
 
     // Build query based on auth status
-    const where: any = { id: params.id };
+    const where: any = { id };
     
     // If user is authenticated, filter by user ID
     if (session?.user?.id) {
@@ -181,7 +183,7 @@ export async function PUT(
     }
     
     const resume = await prisma.resume.update({
-      where: { id: params.id },
+      where: { id },
       data: body,
       select: {
         id: true,
@@ -225,16 +227,16 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  // Ensure params.id is available before using it
-  const resumeId = params.id;
-  if (!resumeId) {
-    return NextResponse.json(
-      { error: "Resume ID is required" },
-      { status: 400 }
-    );
-  }
-  
   try {
+    // Ensure params.id is available and awaited
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json(
+        { error: "Resume ID is required" },
+        { status: 400 }
+      );
+    }
+    
     // Try to get user from session
     const session = await getServerSession(authOptions);
     const guestToken = getGuestToken(req);
@@ -248,7 +250,7 @@ export async function DELETE(
     }
     
     // Build query based on auth status
-    const where: any = { id: resumeId };
+    const where: any = { id };
     
     // If user is authenticated, filter by user ID
     if (session?.user?.id) {
@@ -273,15 +275,15 @@ export async function DELETE(
     }
 
     await prisma.resume.delete({
-      where: { id: resumeId },
+      where: { id },
     });
 
     // Delete cache for this resume
-    await deleteCache(`resume:${resumeId}`);
+    await deleteCache(`resume:${id}`);
     
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(`Error deleting resume ${resumeId}:`, error);
+    console.error(`Error deleting resume ${params?.id}:`, error);
     return NextResponse.json(
       { error: "Failed to delete resume" },
       { status: 500 }

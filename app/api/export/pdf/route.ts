@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
 import puppeteer from "puppeteer"
 
 /**
@@ -8,8 +7,8 @@ import puppeteer from "puppeteer"
  * This route acts as a proxy between the client-side and our HTML to PDF conversion service
  * It helps to:
  * 1. Prevent direct access to the PDF service
- * 2. Add authentication when needed
- * 3. Handle errors consistently
+ * 2. Handle errors consistently
+ * No authentication required - this allows guest users to export their resumes.
  */
 
 // Configuration

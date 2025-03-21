@@ -99,25 +99,51 @@ const skillSuggestions: SkillsData = {
 
 export async function POST(req: Request) {
   try {
-    const { role, section } = await req.json();
+    const { type, jobTitle } = await req.json();
     
-    if (!role || !section) {
+    if (!type || !jobTitle) {
       return NextResponse.json(
-        { error: "Role and section are required" },
+        { error: "Type and jobTitle are required" },
         { status: 400 }
       );
     }
 
-    const descriptions = jobDescriptions[role as keyof typeof jobDescriptions];
-    
-    if (!descriptions) {
+    // Validate job title
+    if (!isValidJobTitle(jobTitle)) {
       return NextResponse.json(
-        { error: "Role not found" },
+        { error: "Invalid job title" },
+        { status: 400 }
+      );
+    }
+
+    let suggestions: string[] | string[][] = [];
+    
+    // Return appropriate suggestions based on type
+    switch (type) {
+      case 'summary':
+        suggestions = professionalSummaries[jobTitle];
+        break;
+      case 'description':
+        suggestions = jobDescriptions[jobTitle];
+        break;
+      case 'skills':
+        suggestions = skillSuggestions[jobTitle];
+        break;
+      default:
+        return NextResponse.json(
+          { error: "Invalid type. Must be 'summary', 'description', or 'skills'" },
+          { status: 400 }
+        );
+    }
+    
+    if (!suggestions || suggestions.length === 0) {
+      return NextResponse.json(
+        { error: "No suggestions found for the given parameters" },
         { status: 404 }
       );
     }
 
-    return NextResponse.json({ suggestions: descriptions });
+    return NextResponse.json({ suggestions });
   } catch (error) {
     console.error("AI suggestions error:", error);
     return NextResponse.json(

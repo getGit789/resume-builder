@@ -290,7 +290,7 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
       <Card className="border-2 border-primary/10 shadow-sm hover:border-primary/20 transition-all duration-200">
         <CardHeader className="bg-primary/5 border-b border-primary/10">
           <CardTitle className="text-xl font-semibold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" />
+            <FileText className="h-5 w-5 text-primary" />
             Personal Information
           </CardTitle>
         </CardHeader>
@@ -387,6 +387,8 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
                     onChange={(value) => handlePersonalInfoChange("summary", value)}
                     placeholder="Write 2-4 short, energetic sentences about how great you are. Mention the role and what you did. What were the big achievements? Describe your motivation and list your skills."
                     className="min-h-[150px]"
+                    fieldType="summary"
+                    jobTitle={resume.data.personalInfo.title}
                   />
                 </div>
               </AccordionContent>
@@ -474,6 +476,7 @@ export default function ResumeEditor({ resume, onResumeChange }: ResumeEditorPro
                     handleItemChange(section.id, itemId, field as keyof SectionItem, value)
                   }
                   onRemoveItem={(itemId) => handleRemoveItem(section.id, itemId)}
+                  jobTitle={resume.data.personalInfo.title}
                 />
               </motion.div>
             ))}

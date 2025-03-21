@@ -87,7 +87,8 @@ export function ResumeNameInput({
             <span 
               className={cn(
                 "font-semibold text-xl cursor-pointer hover:underline truncate", 
-                disabled && "cursor-default hover:no-underline"
+                disabled && "cursor-default hover:no-underline",
+                !name && "text-muted-foreground/60 text-lg font-normal italic"
               )}
               onClick={handleStartEditing}
             >

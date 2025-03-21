@@ -1,7 +1,7 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import ResumePreview from "@/components/resume-preview";
+import { ResumePreview } from "@/components/resume-preview";
 
 interface SharedResumePageProps {
   params: {
@@ -115,7 +115,7 @@ export default async function SharedResumePage({ params }: SharedResumePageProps
       
       <div className="max-w-4xl mx-auto">
         <ResumePreview 
-          data={resume.data} 
+          resumeData={resume.data} 
           template={resume.template} 
           colorTheme={resume.colorTheme} 
         />

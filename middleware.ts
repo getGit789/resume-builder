@@ -16,10 +16,38 @@ const publicPaths = [
   '/pricing',
   '/contact',
   '/builder', // Allow public access to builder
+  '/api/export', // Allow public access to export APIs
+]
+
+// OAuth related paths that need CORS headers
+const authPaths = [
+  '/api/auth',
 ]
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+  
+  // Add CORS headers for OAuth routes
+  if (authPaths.some(path => pathname.startsWith(path))) {
+    // For preflight requests
+    if (request.method === 'OPTIONS') {
+      return NextResponse.json({}, { 
+        status: 200,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+          'Access-Control-Max-Age': '86400',
+        }
+      })
+    }
+    
+    // For actual requests to auth endpoints, proceed with added headers
+    const response = NextResponse.next()
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Credentials', 'true')
+    return response
+  }
   
   // Check if the path is public
   if (publicPaths.some(path => pathname.startsWith(path))) {

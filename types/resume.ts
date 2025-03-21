@@ -1,5 +1,6 @@
 import { Resume as PrismaResume, User } from '@prisma/client';
 import { ColorTheme } from './index';
+import type { ResumeData as IndexResumeData } from "./index";
 
 // Extended Resume type that includes guestToken
 export interface ResumeWithGuestToken extends PrismaResume {
@@ -55,15 +56,16 @@ export interface SectionItem {
 // Resume data types
 export interface Resume {
   id: string;
+  userId?: string;
   name: string;
-  data: ResumeData;
+  data: IndexResumeData;
   template: string;
-  colorTheme: ColorTheme;
-  createdAt: string;
-  updatedAt: string;
+  colorTheme?: string;
+  font?: string;
+  createdAt: Date;
+  updatedAt: Date;
   isPublic?: boolean;
   shareToken?: string;
-  font?: string;
 }
 
 export interface ResumeData {

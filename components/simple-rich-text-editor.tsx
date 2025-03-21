@@ -2,7 +2,7 @@
 
 import { Bold, Italic, Link, List, Strikethrough, Underline } from "lucide-react"
 import { useEffect, useRef, useState, useMemo } from "react"
-import { Button } from "./ui/button"
+import { Button } from "@/components/ui/button"
 import { cn, debounce } from "@/lib/utils"
 import styles from "./rich-text-editor.module.css"
 import { AISuggestionButton } from "./ai-suggestion-button"
@@ -545,6 +545,18 @@ export function SimpleRichTextEditor({
               >
                 <Link className={cn("h-4 w-4", !formatState.hasSelection && "opacity-50")} />
               </button>
+              
+              {aiSuggestionType && (
+                <div className="ml-auto flex items-center">
+                  <AISuggestionButton 
+                    type={aiSuggestionType} 
+                    jobTitle={jobTitle} 
+                    onSelectSuggestion={handleAISuggestion}
+                    variant="ghost"
+                    size="sm"
+                  />
+                </div>
+              )}
             </div>
           )}
           

@@ -24,7 +24,14 @@ function getMockResume(id: string) {
 // GET handler to retrieve sharing status
 export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const id = params.id;
+    // Await params before using
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Resume ID is required' },
+        { status: 400 }
+      );
+    }
     
     // Try to get resume from database
     try {
@@ -72,7 +79,7 @@ export async function GET(request: Request, { params }: RouteParams) {
       return NextResponse.json(mockResume);
     }
   } catch (error) {
-    console.error(`Error getting share status for resume ${params.id}:`, error);
+    console.error(`Error getting share status for resume:`, error);
     return NextResponse.json(
       { error: 'Failed to get share status' },
       { status: 500 }
@@ -82,8 +89,15 @@ export async function GET(request: Request, { params }: RouteParams) {
 
 export async function POST(request: Request, { params }: RouteParams) {
   try {
-    // Await params before destructuring
-    const id = params.id;
+    // Await params before using
+    const id = params?.id;
+    if (!id) {
+      return NextResponse.json(
+        { error: 'Resume ID is required' },
+        { status: 400 }
+      );
+    }
+    
     // Allow request with no body - toggle current state if no isPublic is provided
     let isPublic = true;
     

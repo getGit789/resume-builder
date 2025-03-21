@@ -2,7 +2,8 @@
 
 import { Button } from "@/components/ui/button";
 import { signIn } from "next-auth/react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { logger } from "@/lib/logger";
 
 interface GoogleAuthButtonProps {
   callbackUrl?: string;
@@ -14,13 +15,61 @@ export function GoogleAuthButton({
   className 
 }: GoogleAuthButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  
+  // Monitor for potential CORS or network issues specifically with npass.app
+  useEffect(() => {
+    const errorHandler = (event: ErrorEvent) => {
+      const errorMessage = event.message.toLowerCase();
+      const isNpassError = 
+        errorMessage.includes('npass.app') || 
+        (event.filename && event.filename.includes('npass.app'));
+      
+      // If this is related to npass.app, mark as error but don't propagate
+      if (isNpassError) {
+        setHasError(true);
+        logger.error("Google Auth CORS issue detected", {
+          context: {
+            message: event.message,
+            filename: event.filename,
+            lineno: event.lineno,
+            colno: event.colno
+          },
+          tags: ['google-auth', 'cors']
+        });
+        event.preventDefault();
+        return true;
+      }
+      return false;
+    };
+    
+    window.addEventListener("error", errorHandler);
+    return () => window.removeEventListener("error", errorHandler);
+  }, []);
 
   const handleSignIn = async () => {
+    // If we've detected errors, don't even try
+    if (hasError) {
+      logger.warn("Skipping Google sign in due to previous errors");
+      return;
+    }
+    
     try {
       setIsLoading(true);
-      await signIn("google", { callbackUrl });
+      
+      // Wrap the sign-in with a timeout to prevent hanging
+      const signInPromise = signIn("google", { callbackUrl });
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("Google sign in timed out")), 10000)
+      );
+      
+      await Promise.race([signInPromise, timeoutPromise]);
     } catch (error) {
-      console.error("Google sign in error:", error);
+      logger.error(error instanceof Error ? error : new Error(String(error)), {
+        context: { callbackUrl },
+        tags: ['google-auth', 'auth-error']
+      });
+      setHasError(true);
     } finally {
       setIsLoading(false);
     }
@@ -30,9 +79,10 @@ export function GoogleAuthButton({
     <Button
       variant="outline"
       type="button"
-      className={`${className} relative flex items-center justify-center gap-2 hover:bg-gray-50`}
+      className={`${className} relative flex items-center justify-center gap-2 hover:bg-gray-50 ${hasError ? 'opacity-50 cursor-not-allowed' : ''}`}
       onClick={handleSignIn}
-      disabled={isLoading}
+      disabled={isLoading || hasError}
+      title={hasError ? "Google authentication is currently unavailable" : "Sign in with Google"}
     >
       {isLoading ? (
         <span className="h-5 w-5 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600" />
@@ -44,7 +94,9 @@ export function GoogleAuthButton({
           <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
         </svg>
       )}
-      <span className="text-sm font-medium text-gray-700">Continue with Google</span>
+      <span className="text-sm font-medium text-gray-700">
+        {hasError ? "Google Sign-In Unavailable" : "Continue with Google"}
+      </span>
     </Button>
   );
 } 

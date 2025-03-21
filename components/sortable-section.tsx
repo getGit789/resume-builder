@@ -17,6 +17,7 @@ interface SortableSectionProps {
   onRemoveSection: () => void;
   onItemChange: (itemId: string, field: string, value: string) => void;
   onRemoveItem: (itemId: string) => void;
+  jobTitle?: string;
 }
 
 export function SortableSection({
@@ -27,6 +28,7 @@ export function SortableSection({
   onRemoveSection,
   onItemChange,
   onRemoveItem,
+  jobTitle,
 }: SortableSectionProps) {
   const {
     attributes,
@@ -134,6 +136,8 @@ export function SortableSection({
                     onChange={(value) => onItemChange(item.id, "description", value)}
                     placeholder="Enter a detailed description..."
                     className="min-h-[150px]"
+                    fieldType="description"
+                    jobTitle={jobTitle}
                   />
                 </div>
                 <Button

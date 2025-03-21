@@ -1,223 +1,155 @@
 "use client"
 
-import { ProfessionalTemplate } from "@/components/templates/professional"
-import { MinimalistTemplate } from "@/components/templates/minimalist"
+import { ProfessionalTemplate } from "./templates/professional"
+import { MinimalistTemplate } from "./templates/minimal"
+import { ModernTemplate } from "./templates/modern"
+import { CreativeTemplate } from "./templates/creative"
+import { ExecutiveTemplate } from "./templates/executive"
 import { ColorTheme, ResumeData } from "@/types"
-import { useEffect, useState, useRef } from "react"
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
+import { FONT_FAMILY_MAP, FONTS } from "@/components/font-selector"
 
 interface ResumePreviewProps {
-  resumeData: ResumeData;
-  template: string;
-  colorTheme?: ColorTheme;
-  font?: string;
-  isExport?: boolean;
-  previewRef?: React.RefObject<HTMLDivElement>;
+  resumeData: ResumeData | null
+  template?: string
+  colorTheme?: ColorTheme
+  font?: string
+  isExport?: boolean
+  previewRef?: React.RefObject<HTMLDivElement>
 }
 
-export function ResumePreview({ 
-  resumeData, 
-  template, 
-  colorTheme = "blue",
-  font = "Inter",
-  isExport = false,
-  previewRef
-}: ResumePreviewProps) {
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const internalRef = useRef<HTMLDivElement>(null);
-  
-  // Use the provided ref or the internal one
-  const resolvedRef = previewRef || internalRef;
+// Direct mapping from font ID to font family
+const FONT_ID_TO_FAMILY: Record<string, string> = {
+  "calibri": "'Calibri', 'Segoe UI', sans-serif",
+  "arial": "'Arial', 'Helvetica Neue', sans-serif",
+  "helvetica": "'Helvetica', 'Arial', sans-serif",
+  "times-new-roman": "'Times New Roman', Times, serif",
+  "georgia": "Georgia, 'Times New Roman', serif"
+};
 
-  useEffect(() => {
-    console.log('ResumePreview mounted with props:', { 
-      template, colorTheme, font, isExport,
-      resumeDataSample: resumeData ? JSON.stringify(resumeData).substring(0, 100) + '...' : 'null'
-    });
-    
-    try {
-      // Validate resume data
-      if (!resumeData || !resumeData.personalInfo) {
-        console.error('Invalid resume data:', resumeData);
-        setError('Invalid resume data structure');
-        return;
-      }
-      
-      // Force a repaint to ensure styles are applied
-      if (resolvedRef.current) {
-        resolvedRef.current.style.visibility = 'hidden';
-        resolvedRef.current.offsetHeight; // Force reflow
-        resolvedRef.current.style.visibility = 'visible';
-      }
-      
-      setIsLoaded(true);
-    } catch (err) {
-      console.error('Error in ResumePreview:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    }
-  }, [resumeData, template, colorTheme, font, isExport, resolvedRef]);
-
-  // Add export-specific styles when in export mode or when data-exporting attribute is present
-  useEffect(() => {
-    // Check if we're in export mode or if the parent has data-exporting attribute
-    const isExporting = isExport || resolvedRef.current?.hasAttribute('data-exporting');
-    
-    if (isExporting) {
-      console.log('Applying export-specific styles');
-      // Add export-specific styles
-      const style = document.createElement("style");
-      style.id = "resume-export-styles";
-      style.textContent = `
-        @page {
-          size: A4;
-          margin: 0;
-        }
-        body {
-          margin: 0 !important;
-          padding: 0 !important;
-          background: white !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        .resume-section {
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        .avoid-break {
-          page-break-inside: avoid !important;
-          break-inside: avoid !important;
-        }
-        .pdf-export-page {
-          padding: 0 !important;
-          margin: 0 !important;
-          background: white !important;
-        }
-        .pdf-export-container {
-          box-shadow: none !important;
-          border-radius: 0 !important;
-          padding: 0 !important;
-          margin: 0 !important;
-        }
-        #resume-preview, [data-exporting="true"] {
-          margin: 0 !important;
-          padding: 0 !important;
-          max-height: none !important;
-          overflow: visible !important;
-          height: auto !important;
-          transform: none !important;
-          background: white !important;
-        }
-        
-        /* Improve print layout */
-        @media print {
-          html, body {
-            height: auto !important;
-            overflow: visible !important;
-            background: white !important;
-          }
-          
-          #resume-preview, [data-exporting="true"] {
-            height: auto !important;
-            overflow: visible !important;
-            transform: none !important;
-          }
-        }
-      `;
-      
-      // Remove any existing export styles
-      const existingStyle = document.getElementById("resume-export-styles");
-      if (existingStyle) {
-        existingStyle.remove();
-      }
-      
-      document.head.appendChild(style);
-      
-      return () => {
-        if (style.parentNode) {
-          style.parentNode.removeChild(style);
-        }
-      };
-    }
-  }, [isExport, resolvedRef]);
-
-  // Also add a watcher for the data-exporting attribute
-  useEffect(() => {
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.type === 'attributes' && 
-            mutation.attributeName === 'data-exporting') {
-          console.log('Export attribute changed, refreshing styles');
-          // Force a repaint to ensure styles are applied
-          if (resolvedRef.current) {
-            resolvedRef.current.style.visibility = 'hidden';
-            resolvedRef.current.offsetHeight; // Force reflow
-            resolvedRef.current.style.visibility = 'visible';
-          }
-        }
-      }
-    });
-    
-    if (resolvedRef.current) {
-      observer.observe(resolvedRef.current, { attributes: true });
-    }
-    
-    return () => {
-      observer.disconnect();
-    };
-  }, [resolvedRef]);
-
-  const renderTemplate = () => {
-    if (error) {
-      return (
-        <div className="p-6 text-center">
-          <h2 className="text-xl font-bold text-red-500">Error rendering resume</h2>
-          <p className="mt-2 text-gray-600">{error}</p>
-        </div>
-      );
-    }
-    
-    if (!isLoaded) {
-      return (
-        <div className="p-6 text-center">
-          <p className="text-gray-600">Loading resume template...</p>
-        </div>
-      );
-    }
-    
-    console.log(`Rendering template: ${template}`);
-    
-    try {
-      switch (template) {
-        case "professional":
-          return <ProfessionalTemplate data={resumeData} colorTheme={colorTheme} font={font} />;
-        case "minimalist":
-          return <MinimalistTemplate data={resumeData} colorTheme={colorTheme} font={font} />;
-        default:
-          return <ProfessionalTemplate data={resumeData} colorTheme={colorTheme} font={font} />;
-      }
-    } catch (err) {
-      console.error('Error rendering template:', err);
-      return (
-        <div className="p-6 text-center">
-          <h2 className="text-xl font-bold text-red-500">Error rendering template</h2>
-          <p className="mt-2 text-gray-600">{err instanceof Error ? err.message : 'Unknown error'}</p>
-        </div>
-      );
-    }
-  };
-
+// Simple components for error and loading states
+function TemplateError({ error }: { error: string }) {
   return (
-    <div 
-      ref={previewRef}
-      className={cn(
-        "resume-preview bg-white",
-        isExport ? "p-0" : "p-8"
-      )}
-      style={{ fontFamily: font }}
-    >
-      {renderTemplate()}
+    <div className="flex h-full w-full items-center justify-center p-8 bg-white">
+      <div className="text-center">
+        <h3 className="text-lg font-medium text-red-500">Error Loading Resume</h3>
+        <p className="mt-2 text-sm text-gray-600">{error}</p>
+      </div>
     </div>
   );
+}
+
+function TemplateLoading() {
+  return (
+    <div className="flex h-full w-full items-center justify-center p-8 bg-white">
+      <div className="text-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-gray-200 border-t-blue-600 mx-auto"></div>
+        <p className="mt-2 text-sm text-gray-600">Loading resume...</p>
+      </div>
+    </div>
+  );
+}
+
+export function ResumePreview({
+  resumeData,
+  template = "professional",
+  colorTheme = "blue",
+  font = "calibri",
+  isExport = false,
+  previewRef,
+}: ResumePreviewProps) {
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!resumeData) {
+      setError("Resume data is required")
+      setIsLoading(false)
+      return
+    }
+
+    // Validate required data
+    if (!resumeData.personalInfo) {
+      setError("Personal information is required")
+      setIsLoading(false)
+      return
+    }
+
+    setError(null)
+    setIsLoading(false)
+
+    // Apply export-specific styles
+    if (isExport && previewRef?.current) {
+      previewRef.current.setAttribute("data-exporting", "true")
+    } else if (previewRef?.current) {
+      previewRef.current.removeAttribute("data-exporting")
+    }
+  }, [resumeData, isExport, previewRef])
+
+  // Function to render the appropriate template based on template prop
+  const renderTemplate = () => {
+    // If no resume data, show loading or error
+    if (!resumeData) {
+      return isLoading ? <TemplateLoading /> : <TemplateError error="No resume data available" />;
+    }
+    
+    // Get proper font family string from font ID directly
+    const fontFamily = FONT_ID_TO_FAMILY[font] || "'Calibri', 'Segoe UI', sans-serif";
+
+    // Return the appropriate template based on the template prop
+    if (error) {
+      return <TemplateError error={error} />;
+    }
+
+    if (isLoading) {
+      return <TemplateLoading />;
+    }
+
+    switch (template) {
+      case "professional":
+        return <ProfessionalTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+      case "minimal":
+        return <MinimalistTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+      case "modern":
+        return <ModernTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+      case "creative":
+        return <CreativeTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+      case "executive":
+        return <ExecutiveTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+      default:
+        return <ProfessionalTemplate data={resumeData} colorTheme={colorTheme} font={fontFamily} />;
+    }
+  }
+
+  if (isLoading) {
+    return <div>Loading...</div>
+  }
+
+  if (error) {
+    return <div className="text-center text-red-500 my-4">{error}</div>
+  }
+
+  return (
+    <div
+      id="resume-preview"
+      className="resume-preview-container resume-preview relative bg-white mx-auto"
+      ref={previewRef}
+      data-template={template}
+      data-testid="resume-preview"
+    >
+      <style jsx global>{`
+        /* Export-specific styles */
+        [data-exporting="true"] {
+          width: 210mm !important;
+          min-height: 297mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow: hidden !important;
+        }
+      `}</style>
+      {renderTemplate()}
+    </div>
+  )
 }
 

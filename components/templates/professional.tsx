@@ -54,10 +54,22 @@ function lexicalToHtml(jsonString: string): string {
 export function ProfessionalTemplate({ 
   data, 
   colorTheme = "blue",
-  font = "Inter"
+  font = "'Calibri', 'Segoe UI', sans-serif"
 }: ProfessionalTemplateProps) {
   const randomId = useId().replace(/:/g, "");
   const themeColor = getThemeColor(colorTheme);
+  
+  // Adjust font weight and style based on font family
+  let fontWeight = "normal";
+  let letterSpacing = "normal";
+  
+  if (font.includes("Times New Roman") || font.includes("Georgia")) {
+    letterSpacing = "0.01em";
+  } else if (font.includes("Arial")) {
+    letterSpacing = "0.02em";
+  } else if (font.includes("Helvetica")) {
+    letterSpacing = "0.03em";
+  }
 
   return (
     <div className={randomId}>
@@ -67,8 +79,10 @@ export function ProfessionalTemplate({
             width: 210mm;
             min-height: 297mm;
             padding: 12.7mm;
-            font-family: ${font}, serif;
-            color: black;
+            font-family: ${font};
+            font-weight: ${fontWeight};
+            letter-spacing: ${letterSpacing};
+            color: #2d2d2d;
             background: white;
             line-height: 1.3;
             font-size: 11pt;

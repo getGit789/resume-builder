@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { useSession } from "next-auth/react"
+import { useAuthStatus } from '@/hooks/use-auth-status';
 import { useToast } from "@/components/ui/use-toast"
 import { BuilderToolbar } from "@/components/builder-toolbar"
 import ResumeEditor from "@/components/resume-editor"
@@ -15,17 +15,21 @@ import { formatDistanceToNow } from "date-fns"
 import { Spinner } from "@/components/ui/spinner"
 import { Button } from "@/components/ui/button"
 import { ColorTheme, ResumeData } from "@/types"
-import { Resume } from "@/types/resume"
+import { Resume, AuthUser } from "@/types/resume"
 import { useAutoSave } from "@/hooks/use-auto-save"
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { exportHtmlToDocx, saveDocxBlob } from "@/lib/docx-export"
+import { PremiumFeatureGate } from "@/components/premium-feature-gate"
+import { useAuthStore } from "@/store/use-auth-store"
+import { isFeatureAvailable, getUserFeatureAccess } from "@/lib/feature-access"
 
 interface BuilderPageProps {
   searchParams: { [key: string]: string | string[] | undefined }
 }
 
 function BuilderPageContent() {
-  const { data: session } = useSession()
+  const { session, status } = useAuthStatus();
+  const { user, isAuthenticated } = useAuthStore()
   const { toast } = useToast()
   const searchParamsObj = useSearchParams()
   
@@ -49,6 +53,19 @@ function BuilderPageContent() {
   const [isATSDialogOpen, setIsATSDialogOpen] = useState(false)
   const [currentFont, setCurrentFont] = useState(searchParamsObj.get("font") || "calibri")
   
+  // Convert user to AuthUser for feature access functions
+  const authUser: AuthUser | null = user ? {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    isGuest: user.isGuest,
+    createdAt: new Date(),
+    guestToken: user.isGuest ? "guest-token" : undefined
+  } : null
+  
+  // Feature access
+  const featureAccess = getUserFeatureAccess(authUser)
+  
   // Get resume ID from URL or selected resume
   const resumeId = searchParamsObj.get("id") || selectedResumeId
   
@@ -60,10 +77,17 @@ function BuilderPageContent() {
   } = useAutoSave({
     onSave: async () => {
       if (resume) {
-        await updateResume(resume.id, resume)
+        await updateResume(resume.id, {
+          ...resume,
+          colorTheme: resume.colorTheme as ColorTheme || "blue",
+          // Convert Date objects to strings for the API
+          createdAt: resume.createdAt instanceof Date ? resume.createdAt.toISOString() : resume.createdAt,
+          updatedAt: resume.updatedAt instanceof Date ? resume.updatedAt.toISOString() : resume.updatedAt
+        })
       }
     },
     debounceMs: 2000,
+    autoSaveEnabled: featureAccess.autoSave,
   })
   
   // Load resume data
@@ -75,17 +99,34 @@ function BuilderPageContent() {
         
         let loadedResume: Resume | null = null
         
-        if (resumeId) {
-          loadedResume = await fetchResume(resumeId)
+      if (resumeId) {
+          const tempResume = await fetchResume(resumeId)
+          // Convert the resume to the correct type if it exists
+          if (tempResume) {
+            loadedResume = {
+              ...tempResume,
+              createdAt: new Date(tempResume.createdAt),
+              updatedAt: new Date(tempResume.updatedAt),
+            } as Resume
+          }
         }
         
         if (!loadedResume) {
           const template = searchParamsObj.get("template") || "professional"
-          loadedResume = await createResume("Untitled Resume", defaultResumeData, template)
-          // Apply initial font from URL if present
-          const fontParam = searchParamsObj.get("font")
-          if (fontParam && loadedResume) {
-            loadedResume.font = fontParam
+          const tempResume = await createResume("Untitled Resume", defaultResumeData, template)
+          // Convert the resume to the correct type if it exists
+          if (tempResume) {
+            loadedResume = {
+              ...tempResume,
+              createdAt: new Date(tempResume.createdAt),
+              updatedAt: new Date(tempResume.updatedAt),
+            } as Resume
+            
+            // Apply initial font from URL if present
+            const fontParam = searchParamsObj.get("font")
+            if (fontParam && loadedResume) {
+              loadedResume.font = fontParam
+            }
           }
         }
         
@@ -112,14 +153,14 @@ function BuilderPageContent() {
     loadResume()
   }, [resumeId, fetchResume, createResume, setSelectedResumeId, searchParamsObj, toast])
   
-  // At the top of the BuilderPage component, add this effect to ensure guest mode
+  // At the top of the BuilderPage component, modify the effect to check auth status more accurately
   useEffect(() => {
-    // If not signed in, make sure guest mode is enabled
-    if (!session) {
+    // Only enable guest mode if we're definitely not authenticated
+    if (status === 'unauthenticated') {
       // This will set up guest mode if not already enabled
       ensureGuestMode();
     }
-  }, [session, ensureGuestMode]);
+  }, [status, ensureGuestMode]);
   
   // Handle resume updates
   const handleResumeChange = async (updatedResume: Resume) => {
@@ -383,7 +424,7 @@ function BuilderPageContent() {
           },
         }),
       });
-
+      
       if (!response.ok) {
         throw new Error('Google Docs export failed');
       }
@@ -397,8 +438,8 @@ function BuilderPageContent() {
           
           // Open Google Docs
           window.open(data.url, '_blank');
-          
-          toast({
+        
+        toast({
             title: "Google Docs Export Ready",
             description: "Resume content copied to clipboard. Paste it into the Google Doc that just opened.",
           });
@@ -504,15 +545,44 @@ function BuilderPageContent() {
     }
   };
   
+  // Handle ATS dialog
+  const handleAtsCheck = () => {
+    if (isFeatureAvailable("atsCheck", authUser)) {
+      setPreviousTab(activeTab)
+      setIsATSDialogOpen(true)
+    } else {
+      // For guests, this will be handled by the PremiumFeatureGate
+      setPreviousTab(activeTab)
+      setActiveTab(previousTab) // Stay on current tab
+    }
+  }
+  
+  // Handle grammar check
+  const handleGrammarCheck = () => {
+    if (isFeatureAvailable("grammarCheck", authUser)) {
+      // Implement grammar check functionality
+      toast({
+        title: "Grammar Check",
+        description: "Checking your resume for grammar issues...",
+      })
+    }
+    // For guests, let the PremiumFeatureGate handle the access restriction
+  }
+  
   // Handle tab change
   const handleTabChange = (value: string) => {
     if (value === "ats") {
-      // For ATS, show the dialog instead of changing tabs
-      setPreviousTab(activeTab)
-      setIsATSDialogOpen(true)
-      // Keep the previously active tab
+      // For ATS, handle with a separate function that checks auth
+      handleAtsCheck()
       return
     }
+    
+    if (value === "grammar") {
+      // For Grammar check, handle with a separate function
+      handleGrammarCheck()
+      return
+    }
+    
     setActiveTab(value)
   }
   
@@ -533,6 +603,9 @@ function BuilderPageContent() {
     )
   }
   
+  // Make sure colorTheme is a valid ColorTheme value
+  const safeColorTheme = (resume.colorTheme as ColorTheme) || "blue"
+
   return (
     <div className="flex min-h-screen flex-col">
       <BuilderToolbar
@@ -545,13 +618,13 @@ function BuilderPageContent() {
         onResumeNameChange={(name: string) => handleResumeChange({ ...resume, name })}
         currentTemplate={resume.template}
         onTemplateChange={handleTemplateChange}
-        colorTheme={resume.colorTheme || "blue"}
+        colorTheme={safeColorTheme}
         onColorThemeChange={handleColorThemeChange}
         font={currentFont}
         onFontChange={handleFontChange}
         isAutosaving={isSaving}
         lastSaved={lastSaved}
-        autosaveError={autosaveError}
+        autosaveError={autosaveError ? autosaveError.message : null}
       />
       
       <div className="container flex-1 px-4 py-6">
@@ -561,17 +634,17 @@ function BuilderPageContent() {
               resume={resume}
               onResumeChange={handleResumeChange}
             />
-          </TabsContent>
-          
+              </TabsContent>
+              
           <TabsContent value="preview" className="h-full flex items-center justify-center">
-            <ResumePreview
+                  <ResumePreview 
               resumeData={resume.data}
               template={resume.template}
-              colorTheme={resume.colorTheme}
+              colorTheme={safeColorTheme}
               font={currentFont}
             />
-          </TabsContent>
-        </Tabs>
+              </TabsContent>
+            </Tabs>
 
         {/* ATS Checker Dialog */}
         <Dialog 
@@ -591,9 +664,11 @@ function BuilderPageContent() {
             </DialogDescription>
             <div className="mt-4">
               {resume && (
-                <ATSChecker resumeData={resume.data} />
-              )}
-            </div>
+                <PremiumFeatureGate feature="atsCheck">
+                  <ATSChecker resumeData={resume.data} />
+                </PremiumFeatureGate>
+          )}
+        </div>
           </DialogContent>
         </Dialog>
       </div>

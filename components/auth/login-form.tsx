@@ -49,9 +49,9 @@ export function LoginForm({ onSuccess, callbackUrl = "/dashboard" }: LoginFormPr
       
       // Use NextAuth signIn
       const result = await signIn("credentials", {
+        redirect: false,
         email: data.email,
         password: data.password,
-        redirect: false,
         callbackUrl,
       })
       
@@ -61,6 +61,13 @@ export function LoginForm({ onSuccess, callbackUrl = "/dashboard" }: LoginFormPr
         setErrorMessage("Invalid email or password")
         throw new Error("Invalid email or password")
       }
+      
+      // Clear guest mode cookie when user successfully logs in
+      document.cookie = 'guestMode=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      document.cookie = 'guestToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      
+      // Wait a moment to ensure cookies are cleared
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       toast({
         title: "Login successful",

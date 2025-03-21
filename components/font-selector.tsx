@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { Check, Type } from "lucide-react"
-import { Inter, Open_Sans } from "next/font/google"
 
 import { cn } from "@/lib/utils"
 import {
@@ -13,33 +12,21 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-// Load fonts with Next.js
-const inter = Inter({ 
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-inter',
-})
-
-const openSans = Open_Sans({ 
-  subsets: ['latin'],
-  display: 'swap',
-  variable: '--font-open-sans',
-})
-
-// Define available fonts
-const FONTS = [
-  { id: "inter", name: "Inter" },
-  { id: "roboto", name: "Roboto" },
-  { id: "lato", name: "Lato" },
-  { id: "poppins", name: "Poppins" },
-  { id: "montserrat", name: "Montserrat" },
-  { id: "open-sans", name: "Open Sans" },
+// Define available fonts - in specified order
+export const FONTS = [
+  { id: "calibri", name: "Calibri" },
+  { id: "arial", name: "Arial" },
+  { id: "helvetica", name: "Helvetica" },
+  { id: "times-new-roman", name: "Times New Roman" },
+  { id: "georgia", name: "Georgia" }
 ]
 
 // Map font names to CSS font-family values
 export const FONT_FAMILY_MAP: Record<string, string> = {
-  "Inter": "'Inter', sans-serif",
-  "Open Sans": "'Open Sans', sans-serif",
+  "Calibri": "'Calibri', 'Segoe UI', sans-serif",
+  "Arial": "'Arial', sans-serif",
+  "Helvetica": "'Helvetica', sans-serif",
+  "Times New Roman": "'Times New Roman', serif",
   "Georgia": "Georgia, serif"
 }
 
@@ -55,9 +42,9 @@ export function FontSelector({
   const currentFontName = FONTS.find(f => f.id === value)?.name || "Select Font"
 
   return (
-    <div className={`${inter.variable} ${openSans.variable}`}>
+    <div>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger className="w-[130px]">
+        <SelectTrigger className="w-[180px]">
           <Type className="mr-2 h-4 w-4" />
           <SelectValue>{currentFontName}</SelectValue>
         </SelectTrigger>
@@ -66,7 +53,7 @@ export function FontSelector({
             <SelectItem
               key={font.id}
               value={font.id}
-              style={{ fontFamily: font.name }}
+              style={{ fontFamily: FONT_FAMILY_MAP[font.name] }}
             >
               {font.name}
             </SelectItem>
